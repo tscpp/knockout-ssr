@@ -2,14 +2,22 @@
   "name": "knockout-ssr",
   "version": "0.1.0-alpha.1",
   "description": "Simple server-side rendering for Knockout.js",
-  "main": "build/lib/index.js",
-  "type": "module",
   "keywords": [
     "knockout",
     "ssr"
   ],
-  "author": "Elias Skogevall",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tscpp/knockout-ssr.git"
+  },
   "license": "MIT",
+  "author": "Elias Skogevall",
+  "type": "module",
+  "main": "build/lib/index.js",
+  "bin": "build/main.js",
+  "files": [
+    "build"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "node -r source-map-support/register build/main.js --input ./test/document.html --outdir ./test/build"
@@ -30,5 +38,8 @@
     "@types/yargs": "^17.0.32",
     "source-map-support": "^0.5.21",
     "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }
