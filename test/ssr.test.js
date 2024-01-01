@@ -1,4 +1,4 @@
-import { render } from "../build/lib/exports.js";
+import { render, utils } from "../build/lib/exports.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -80,4 +80,39 @@ test("renders css binding on element", async () => {
     <!-- /ko -->
   `);
   assert(/class=["'][^]*foo/.test(document));
+});
+
+test("renders using custom plugin", async () => {
+  const translations = {
+    fr: {
+      greeting: "bonjour",
+    },
+  };
+  /** @type {import('../build/lib/exports.js').Plugin} */
+  const i18nPlugin = {
+    filter: (binding) => binding.name === "i18n",
+    ssr: (binding, generated) => {
+      const lang = binding.viewModel?.language;
+      const key = binding.value;
+      const asHtml = utils.escapeHtml(translations[lang][key]);
+
+      const inner = utils.getInnerRange(binding.parent, generated.original);
+      if (inner.isEmpty) {
+        generated.appendLeft(inner.start.offset, asHtml);
+      } else {
+        generated.update(...inner.offset, asHtml);
+      }
+    },
+  };
+  const { document } = await render(
+    html`
+      <!-- ko ssr: { language: "fr" } -->
+      <div data-bind="i18n: 'greeting'"></div>
+      <!-- /ko -->
+    `,
+    {
+      plugins: [i18nPlugin],
+    },
+  );
+  assert(document.includes(`>${translations.fr.greeting}<`));
 });
