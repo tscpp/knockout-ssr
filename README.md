@@ -122,7 +122,7 @@ const i18n: Plugin = {
     const translated = i18next.t(binding.value);
 
     // Get the inner range (children) of the element of the binding.
-    const inner = utils.getInnerRange(binding.parent);
+    const inner = utils.getInnerRange(binding.parent, generated.original);
     // Replace the inner range with the translated text.
     generated.update(...inner.offset, utils.escapeHtml(translated));
   },
