@@ -20,7 +20,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "node -r source-map-support/register build/main.js --input ./test/document.html --outdir ./test/build"
+    "test": "node --test"
   },
   "dependencies": {
     "acorn": "^8.11.3",
