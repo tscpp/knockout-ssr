@@ -1,6 +1,6 @@
 {
   "name": "knockout-ssr",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0",
   "description": "Simple server-side rendering for Knockout.js",
   "keywords": [
     "knockout",
