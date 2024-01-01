@@ -105,13 +105,21 @@ class SsrRenderer {
   }
 
   async #apply(node: VirtualElement) {
-    const path = node.param.trim();
+    const param = node.param.trim();
+    let viewModel: any;
 
-    const viewModel = initViewModel(
-      await import(
-        importMetaResolve(path, pathToFileURL(resolve(this.#parent)).toString())
-      ),
-    );
+    if (param.startsWith("{")) {
+      viewModel = evaluateInitViewModel(param);
+    } else {
+      viewModel = initViewModel(
+        await import(
+          importMetaResolve(
+            param,
+            pathToFileURL(resolve(this.#parent)).toString(),
+          )
+        ),
+      );
+    }
 
     // Remove virtual element start and end comments.
     const innerRange = getInnerRange(node, this.#document.original);
@@ -228,4 +236,8 @@ function transform(expression: string): string {
  */
 function evaluate(expression: string, viewmodel: any) {
   return new Function("$viewmodel", `return ${expression}`)(viewmodel);
+}
+
+function evaluateInitViewModel(expression: string) {
+  return new Function(`return ${expression}`)();
 }
