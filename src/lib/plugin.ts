@@ -1,7 +1,13 @@
 import MagicString from "magic-string";
 import { Element } from "./parsers/html.js";
 import { Binding } from "./ssr.js";
-import { addClass, escapeHtml, getInnerRange, removeClass, toggleVisibillity } from "./utils.js";
+import {
+  addClass,
+  escapeHtml,
+  getInnerRange,
+  removeClass,
+  toggleVisibillity,
+} from "./utils.js";
 
 export interface Plugin {
   filter: (binding: Binding) => boolean;
