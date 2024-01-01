@@ -20,7 +20,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "node --test"
+    "test": "node --test",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "acorn": "^8.11.3",
