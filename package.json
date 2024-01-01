@@ -14,7 +14,7 @@
   "author": "Elias Skogevall",
   "type": "module",
   "main": "build/lib/index.js",
-  "bin": "build/main.js",
+  "bin": "bin/knockout-ssr.js",
   "files": [
     "build"
   ],
