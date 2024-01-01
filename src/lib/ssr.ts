@@ -20,6 +20,7 @@ export class Binding {
     public readonly name: string,
     public readonly value: unknown,
     public readonly expression: string,
+    public readonly viewModel: any,
     /** @deprecated */
     public readonly parent: Element | VirtualElement,
   ) {}
@@ -157,7 +158,7 @@ class SsrRenderer {
             const expression = transform(asObject.slice(...prop.value.range!));
             const value = evaluate(expression, viewModel);
 
-            return new Binding(prop.key.name, value, expression, node);
+            return new Binding(prop.key.name, value, expression, viewModel, node);
           });
 
           for (const binding of bindings) {
@@ -170,7 +171,7 @@ class SsrRenderer {
         const expression = transform(node.param);
         const value = evaluate(expression, viewModel);
 
-        const binding = new Binding(node.binding, value, expression, node);
+        const binding = new Binding(node.binding, value, expression, viewModel, node);
         await processBinding(binding);
       }
 
