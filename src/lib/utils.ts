@@ -82,6 +82,17 @@ export function toggleVisibillity(
     const attr = element.attributes.find((attr) => attr.name === "style");
 
     if (attr) {
+      const value = attr.value.replace(
+        /(^|;)\s*display\s*:\s*[^]+?\s*(;|$)/,
+        "$2",
+      );
+
+      generated.update(attr.range.start.offset, attr.range.end.offset, value);
+    }
+  } else {
+    const attr = element.attributes.find((attr) => attr.name === "style");
+
+    if (attr) {
       if (/(^|;)\s*display\s*:/.test(attr.value)) {
         const value = attr.value.replace(
           /(^|;)\s*display\s*:\s*[^]+?\s*(;|$)/,
@@ -103,21 +114,14 @@ export function toggleVisibillity(
         ` style="display: none"`,
       );
     }
-  } else {
-    const attr = element.attributes.find((attr) => attr.name === "style");
-
-    if (attr) {
-      const value = attr.value.replace(
-        /(^|;)\s*display\s*:\s*[^]+?\s*(;|$)/,
-        "$2",
-      );
-
-      generated.update(attr.range.start.offset, attr.range.end.offset, value);
-    }
   }
 }
 
-export function addClass(generated: MagicString, element: Element, className: string) {
+export function addClass(
+  generated: MagicString,
+  element: Element,
+  className: string,
+) {
   const attr = element.attributes.find((attr) => attr.name === "class");
 
   if (attr) {
