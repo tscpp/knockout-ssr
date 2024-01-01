@@ -16,6 +16,7 @@
   "main": "build/lib/exports.js",
   "bin": "bin/knockout-ssr.js",
   "files": [
+    "bin",
     "build"
   ],
   "scripts": {
