@@ -13,7 +13,7 @@
   "license": "MIT",
   "author": "Elias Skogevall",
   "type": "module",
-  "main": "build/lib/index.js",
+  "main": "build/lib/exports.js",
   "bin": "bin/knockout-ssr.js",
   "files": [
     "build"
