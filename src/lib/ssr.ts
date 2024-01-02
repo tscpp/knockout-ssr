@@ -160,7 +160,13 @@ class SSRRenderer {
             const expression = transform(asObject.slice(...prop.value.range!));
             const value = evaluate(expression, viewModel);
 
-            return new Binding(prop.key.name, value, expression, viewModel, node);
+            return new Binding(
+              prop.key.name,
+              value,
+              expression,
+              viewModel,
+              node,
+            );
           });
 
           for (const binding of bindings) {
@@ -173,7 +179,13 @@ class SSRRenderer {
         const expression = transform(node.param);
         const value = evaluate(expression, viewModel);
 
-        const binding = new Binding(node.binding, value, expression, viewModel, node);
+        const binding = new Binding(
+          node.binding,
+          value,
+          expression,
+          viewModel,
+          node,
+        );
         await processBinding(binding);
       }
 
