@@ -1,6 +1,8 @@
+#!/usr/bin/env node
+
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import * as prettier from "prettier";
-import { render } from "./lib/exports.js";
+import { render } from "../lib/exports.js";
 import yargs from "yargs";
 import { basename, dirname, resolve } from "node:path";
 import { resolve as importMetaResolve } from "import-meta-resolve";
