@@ -52,18 +52,10 @@ npm install --save-dev knockout-ssr
 
 `knockout-ssr` is pre-equipped with integrations for various build tools. All integrations are located under `knockout-ssr/<build-tool-name>`, e.g. `knockout-ssr/vite`. For other build tools or custom build processes, use either the [CLI](#cli) or [API](#api).
 
-<style>
-details {
-  margin-bottom: 1em;
-}
-
-summary > * {
-  display: inline;
-}
-</style>
-
+<ul>
+<li>
 <details>
-<summary><h4>Vite - Configuration</h4></summary>
+<summary>Vite</summary>
  
 ```js
 import knockoutSSR from 'knockout-ssr/vite';
@@ -76,9 +68,10 @@ plugins: [knockoutSSR()],
 ````
 
 </details>
-
+</li>
+<li>
 <details>
-<summary><h4>Rollup - Configuration</h4></summary>
+<summary>Rollup</summary>
 
 ```js
 import knockoutSSR from 'knockout-ssr/rollup'
@@ -90,9 +83,10 @@ export default defineConfig({
 ````
 
 </details>
-
+</li>
+<li>
 <details>
-<summary><h4>Webpack - Configuration</h4></summary>
+<summary>Webpack</summary>
 
 ```js
 module.exports = {
@@ -109,6 +103,10 @@ module.exports = {
 ```
 
 </details>
+</li>
+</ul>
+
+_Click on any item in the list above to reveal configuration._
 
 ### CLI
 
