@@ -41,6 +41,9 @@ async function runBuild() {
     entryPoints: {
       index: "src/lib/exports.ts",
       "bin/knockout-ssr": "src/cli/main.ts",
+      "rollup/index": "src/rollup/plugin.ts",
+      "vite/index": "src/vite/plugin.ts",
+      "webpack/index": "src/webpack/loader.ts",
     },
     outDir: "dist",
     format: "esm",

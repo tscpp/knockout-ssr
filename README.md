@@ -48,6 +48,68 @@ npm install --save-dev knockout-ssr
 
 ## Usage
 
+### Integration
+
+`knockout-ssr` is pre-equipped with integrations for various build tools. All integrations are located under `knockout-ssr/<build-tool-name>`, e.g. `knockout-ssr/vite`. For other build tools or custom build processes, use either the [CLI](#cli) or [API](#api).
+
+<style>
+details {
+  margin-bottom: 1em;
+}
+
+summary > * {
+  display: inline;
+}
+</style>
+
+<details>
+<summary><h4>Vite - Configuration</h4></summary>
+ 
+```js
+import knockoutSSR from 'knockout-ssr/vite';
+
+export default defineConfig({
+...
+plugins: [knockoutSSR()],
+});
+
+````
+
+</details>
+
+<details>
+<summary><h4>Rollup - Configuration</h4></summary>
+
+```js
+import knockoutSSR from 'knockout-ssr/rollup'
+
+export default defineConfig({
+  ...
+  plugins: [knockoutSSR()]
+})
+````
+
+</details>
+
+<details>
+<summary><h4>Webpack - Configuration</h4></summary>
+
+```js
+module.exports = {
+  ...
+  module: {
+    rules: [
+      {
+        test: /\.html$/,
+        use: ['knockout-ssr/webpack'],
+      },
+    ],
+  },
+};
+```
+
+</details>
+
 ### CLI
 
 The library comes with a command-line interface which can be used to render individual documents. The cli does not yet support rendering multiple documents in one go.

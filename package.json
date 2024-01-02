@@ -22,6 +22,18 @@
     "./bin/knockout-ssr.js": {
       "types": "./bin/knockout-ssr.d.ts",
       "default": "./bin/knockout-ssr.js"
+    },
+    "./rollup": {
+      "types": "./rollup/index.d.ts",
+      "default": "./rollup/index.js"
+    },
+    "./vite": {
+      "types": "./vite/index.d.ts",
+      "default": "./vite/index.js"
+    },
+    "./webpack": {
+      "types": "./webpack/index.d.ts",
+      "default": "./webpack/index.js"
     }
   },
   "types": "index.d.ts",
@@ -33,6 +45,7 @@
     "test": "node --test"
   },
   "dependencies": {
+    "@rollup/pluginutils": "^5.1.0",
     "acorn": "^8.11.3",
     "acorn-walk": "^8.3.1",
     "import-meta-resolve": "^4.0.0",
@@ -49,9 +62,12 @@
     "@types/yargs": "^17.0.32",
     "execa": "^8.0.1",
     "np": "^9.2.0",
+    "rollup": "^4.9.2",
     "source-map-support": "^0.5.21",
     "tsup": "^8.0.1",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10",
+    "webpack": "^5.89.0"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -60,7 +76,9 @@
     "access": "public",
     "includeDependencies": [
       "@types/node",
-      "@types/yargs"
+      "@types/yargs",
+      "rollup",
+      "vite"
     ]
   },
   "np": {
