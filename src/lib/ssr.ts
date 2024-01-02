@@ -26,7 +26,7 @@ export class Binding {
   ) {}
 }
 
-export interface SsrOptions {
+export interface RenderOptions {
   /**
    * Custom plugins to use.
    */
@@ -45,7 +45,9 @@ export interface SsrOptions {
    * @default ["data-bind"]
    */
   attributes?: string[] | undefined;
+}
 
+export interface SSROptions extends RenderOptions {
   /**
    * The path of the file being processed. This is used to resolve relative
    * paths within the document. If not specified, paths will be resolved
@@ -54,7 +56,7 @@ export interface SsrOptions {
   parent?: string | undefined;
 }
 
-export interface SsrResult {
+export interface SSRResult {
   /**
    * The generated document.
    */
@@ -63,18 +65,18 @@ export interface SsrResult {
 
 export function render(
   document: string,
-  options?: SsrOptions,
-): Promise<SsrResult> {
-  return new SsrRenderer(document, options).render();
+  options?: SSROptions,
+): Promise<SSRResult> {
+  return new SSRRenderer(document, options).render();
 }
 
-class SsrRenderer {
+class SSRRenderer {
   #document: MagicString;
   #plugins: Plugin[];
   #attributes: string[];
   #parent: string;
 
-  constructor(document: string, options?: SsrOptions | undefined) {
+  constructor(document: string, options?: SSROptions | undefined) {
     this.#document = new MagicString(document);
     this.#plugins = [
       ...(options?.useBuiltins !== false ? builtins : []),
@@ -84,7 +86,7 @@ class SsrRenderer {
     this.#parent = options?.parent ?? resolve("unnamed.html");
   }
 
-  async render(): Promise<SsrResult> {
+  async render(): Promise<SSRResult> {
     const parsed = parse(this.#document.original);
     await this.#scan(parsed);
     return {
