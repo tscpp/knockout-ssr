@@ -1,5 +1,16 @@
-import { Element, Position, Range, VirtualElement } from "./parsers/html.js";
+import {
+  Element,
+  Position,
+  Range,
+  VirtualElement,
+  parse5ToRange,
+} from "./parsers/html.js";
 import MagicString from "magic-string";
+import * as parse5 from "./parsers/_parse5.js";
+import inlineStyleParser from "inline-style-parser";
+
+const parseInlineStyle =
+  inlineStyleParser as unknown as typeof inlineStyleParser.default;
 
 export function getInnerRange(
   node: Element | VirtualElement,
@@ -54,13 +65,6 @@ function getInnerRangeOfVirtualElement(
   node: VirtualElement,
   _document: string,
 ): Range {
-  // const outer = document.slice(node.range.start.offset, node.range.end.offset);
-  // const startOffset = node.range.start.offset + outer.indexOf("-->") + 3;
-  // const endOffset = node.range.start.offset + outer.lastIndexOf("<!--");
-  // return new Range(
-  //   Position.fromOffset(startOffset, document),
-  //   Position.fromOffset(endOffset, document),
-  // );
   return new Range(node.start.range.end, node.end.range.start);
 }
 
@@ -73,47 +77,56 @@ export function escapeHtml(string: string) {
     .replaceAll("'", "&#039;");
 }
 
-export function toggleVisibillity(
+export function setStyle(
   generated: MagicString,
   element: Element,
-  visible: boolean,
+  property: string,
+  value: string | null,
 ) {
-  if (visible) {
-    const attr = element.attributes.find((attr) => attr.name === "style");
+  const attr = element.attributes.find((attr) => attr.name === "style");
 
-    if (attr) {
-      const value = attr.value.replace(
-        /(^|;)\s*display\s*:\s*[^]+?\s*(;|$)/,
-        "$2",
-      );
+  if (attr) {
+    const styles = parseInlineStyle(attr.value);
 
-      generated.update(attr.range.start.offset, attr.range.end.offset, value);
-    }
-  } else {
-    const attr = element.attributes.find((attr) => attr.name === "style");
-
-    if (attr) {
-      if (/(^|;)\s*display\s*:/.test(attr.value)) {
-        const value = attr.value.replace(
-          /(^|;)\s*display\s*:\s*[^]+?\s*(;|$)/,
-          "$1display:none$2",
+    for (const style of styles) {
+      if (style.type === "declaration" && style.property === property) {
+        const range = new Range(
+          Position.fromLineAndColumn(
+            style.position.start.line,
+            style.position.start.column,
+            attr.value,
+          ),
+          Position.fromLineAndColumn(
+            style.position.end.line,
+            style.position.end.column,
+            attr.value,
+          ),
         );
-
-        generated.update(attr.range.start.offset, attr.range.end.offset, value);
-      } else {
-        generated.appendLeft(
-          attr.range.end.offset - 1,
-          (attr.value.trim().endsWith(";") ? "" : "; ") + "display: none",
-        );
+        range.move(attr.range.start.offset);
+        generated.remove(...range.offset);
       }
-    } else {
-      const innerRange = getInnerRange(element, generated.original);
-
-      generated.appendLeft(
-        innerRange.start.offset - 1,
-        ` style="display: none"`,
-      );
     }
+
+    if (value !== null) {
+      generated.appendLeft(attr.range.start.offset, `${property}: ${value};`);
+    }
+  } else if (value !== null) {
+    setAttribute(generated, element, "style", `${property}: ${value};`);
+  }
+}
+
+export function hasClass(
+  generated: MagicString,
+  element: Element,
+  className: string,
+): boolean {
+  const attr = getAttribute(generated, element, "class");
+
+  if (attr === null) {
+    return false;
+  } else {
+    const classes = attr.split(/\s+/);
+    return classes.includes(className);
   }
 }
 
@@ -122,16 +135,16 @@ export function addClass(
   element: Element,
   className: string,
 ) {
-  const attr = element.attributes.find((attr) => attr.name === "class");
+  const attr = getAttribute(generated, element, "class");
 
-  if (attr) {
-    const classes = new Set(attr.value.split(/\s+/));
-    classes.add(className);
-    const value = [...classes].join(" ");
-    generated.update(attr.range.start.offset, attr.range.end.offset, value);
+  if (attr === null) {
+    setAttribute(generated, element, "class", className);
   } else {
-    const innerRange = getInnerRange(element, generated.original);
-    generated.appendLeft(innerRange.start.offset - 1, ` class="${className}"`);
+    const classes = attr.split(/\s+/);
+    if (classes.includes(className)) return;
+    classes.push(className);
+    const value = classes.join(" ");
+    setAttribute(generated, element, "class", value);
   }
 }
 
@@ -140,12 +153,58 @@ export function removeClass(
   element: Element,
   className: string,
 ) {
-  const attr = element.attributes.find((attr) => attr.name === "class");
+  const attr = getAttribute(generated, element, "class");
 
-  if (attr) {
-    const classes = new Set(attr.value.split(/\s+/));
-    classes.delete(className);
-    const value = [...classes].join(" ");
-    generated.update(attr.range.start.offset, attr.range.end.offset, value);
+  if (attr !== null) {
+    const classes = attr.split(/\s+/);
+    const index = classes.indexOf(className);
+    if (index !== -1) {
+      classes.splice(index, 1);
+      const value = classes.join(" ");
+      setAttribute(generated, element, "class", value);
+    }
+  }
+}
+
+export function getAttribute(
+  generated: MagicString,
+  element: Element,
+  name: string,
+): string | null {
+  const fragment5 = parse5.parseFragment(
+    generated.slice(...element.range.offset),
+    { sourceCodeLocationInfo: true },
+  );
+  const element5 = fragment5.childNodes[0] as parse5.Element;
+  const attr5 = element5.attrs.find((attr) => attr.name === name);
+  return attr5?.value ?? null;
+}
+
+export function setAttribute(
+  generated: MagicString,
+  element: Element,
+  name: string,
+  value: string | null,
+) {
+  const fragment5 = parse5.parseFragment(
+    generated.slice(...element.range.offset),
+    { sourceCodeLocationInfo: true },
+  );
+  const element5 = fragment5.childNodes[0] as parse5.Element;
+
+  if (element5.attrs.find((attr) => attr.name === name)) {
+    const range = parse5ToRange(element5.sourceCodeLocation!.attrs![name]!);
+
+    if (value === null) {
+      generated.remove(range.start.offset, range.end.offset);
+    } else {
+      generated.update(range.start.offset, range.end.offset, escapeHtml(value));
+    }
+  } else if (value !== null) {
+    const innerRange = getInnerRange(element, generated.original);
+    generated.appendLeft(
+      innerRange.start.offset - 1,
+      ` ${name}="${escapeHtml(value)}"`,
+    );
   }
 }

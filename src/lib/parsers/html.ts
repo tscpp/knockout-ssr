@@ -43,15 +43,30 @@ export class Position {
 
   constructor(
     /** zero-indexed */
-    public readonly line: number,
+    public line: number,
     /** zero-indexed */
-    public readonly column: number,
+    public column: number,
     /** zero-indexed */
-    public readonly offset: number,
+    public offset: number,
   ) {}
+
+  move(line: number, column: number): void;
+  move(offset: number): void;
+  move(...args: [number, number] | [number]): void {
+    if (args.length === 1) {
+      const position = Position.fromOffset(args[0], "");
+      this.line = position.line;
+      this.column = position.column;
+      this.offset = position.offset;
+    } else {
+      this.line += args[0];
+      this.column += args[1];
+      this.offset += args[1];
+    }
+  }
 }
 
-function parse5Range(location: parse5.Token.Location): Range {
+export function parse5ToRange(location: parse5.Token.Location): Range {
   return new Range(
     new Position(
       location.startLine - 1,
@@ -63,10 +78,31 @@ function parse5Range(location: parse5.Token.Location): Range {
 }
 
 export class Range {
+  readonly start: Position;
+  readonly end: Position;
+
+  constructor(start: Position, end: Position);
   constructor(
-    public readonly start: Position,
-    public readonly end: Position,
-  ) {}
+    startLine: number,
+    startColumn: number,
+    startOffset: number,
+    endLine: number,
+    endColumn: number,
+    endOffset: number,
+  );
+  constructor(
+    ...args:
+      | [Position, Position]
+      | [number, number, number, number, number, number]
+  ) {
+    if (args.length === 2) {
+      this.start = args[0];
+      this.end = args[1];
+    } else {
+      this.start = new Position(args[0], args[1], args[2]);
+      this.end = new Position(args[3], args[4], args[5]);
+    }
+  }
 
   get offset(): readonly [number, number] {
     return [this.start.offset, this.end.offset];
@@ -74,6 +110,18 @@ export class Range {
 
   get isEmpty(): boolean {
     return this.start.offset === this.end.offset;
+  }
+
+  move(line: number, column: number): void;
+  move(offset: number): void;
+  move(...args: [number, number] | [number]): void {
+    if (args.length === 1) {
+      this.start.move(...args);
+      this.end.move(...args);
+    } else {
+      this.start.move(...args);
+      this.end.move(...args);
+    }
   }
 }
 
@@ -158,7 +206,7 @@ export function parse(document: string): Document {
 function parseNode(node: parse5.Node, iter: Iterator<parse5.Node>): Node {
   switch (true) {
     case parse5.isTextNode(node): {
-      return new Text(node.value, parse5Range(node.sourceCodeLocation!));
+      return new Text(node.value, parse5ToRange(node.sourceCodeLocation!));
     }
     case parse5.isCommentNode(node): {
       if (virtualElementStart.test(node.data)) {
@@ -204,18 +252,18 @@ function parseNode(node: parse5.Node, iter: Iterator<parse5.Node>): Node {
           binding,
           param,
           children2,
-          new Comment(node.data, parse5Range(node.sourceCodeLocation!)),
+          new Comment(node.data, parse5ToRange(node.sourceCodeLocation!)),
           new Comment(
             endComment.data,
-            parse5Range(endComment.sourceCodeLocation!),
+            parse5ToRange(endComment.sourceCodeLocation!),
           ),
           new Range(
-            parse5Range(node.sourceCodeLocation!).start,
-            parse5Range(endComment.sourceCodeLocation!).end,
+            parse5ToRange(node.sourceCodeLocation!).start,
+            parse5ToRange(endComment.sourceCodeLocation!).end,
           ),
         );
       } else {
-        return new Comment(node.data, parse5Range(node.sourceCodeLocation!));
+        return new Comment(node.data, parse5ToRange(node.sourceCodeLocation!));
       }
     }
     case parse5.isElement(node): {
@@ -236,11 +284,11 @@ function parseNode(node: parse5.Node, iter: Iterator<parse5.Node>): Node {
               attr.value,
               attr.namespace,
               attr.prefix,
-              parse5Range(node.sourceCodeLocation!.attrs![attr.name]!),
+              parse5ToRange(node.sourceCodeLocation!.attrs![attr.name]!),
             ),
         ),
         children,
-        parse5Range(node.sourceCodeLocation!),
+        parse5ToRange(node.sourceCodeLocation!),
       );
     }
     default: {
