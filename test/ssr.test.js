@@ -1,4 +1,4 @@
-import { render, utils } from "../build/lib/exports.js";
+import { render, utils } from "../dist/index.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 
