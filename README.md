@@ -20,7 +20,7 @@ The library parses HTML documents to identify Knockout-specific binding attribut
 
 Leveraging Knockout's MVVM pattern, which relies on underlying data models, `knockout-ssr` allows for the creation of isomorphic viewmodels operative on both server and client sides, or distinct server-side viewmodels. Client-side, you can use `applyBindings` as usual for correct view hydration. For enhanced performance, consider asynchronously executing `applyBindings` to reduce JavaScript blocking and improve page load times.
 
----
+### Writing Views
 
 To use server-side rendering, insert the special virtual element "ssr" in your HTML document to indicate where server-side rendering should occur.
 
@@ -35,6 +35,22 @@ In this virtual element, all compatible bindings are rendered. Additionally, all
 ```html
 <p data-bind="text: message">Hello world!</p>
 ```
+
+### Supported Bindings
+
+> [!IMPORTANT]  
+> This is still a proof of concept. More bindings will be implemented later. Flow control bindings (if, foreach, etc.) are planned to be implemented later.
+
+`knockout-ssr` supports the following standard knockout bindings:
+
+- [`visible`](https://knockoutjs.com/documentation/visible-binding.html)
+- [`hidden`](https://knockoutjs.com/documentation/visible-binding.html)
+- [`text`](https://knockoutjs.com/documentation/text-binding.html)
+- [`html`](https://knockoutjs.com/documentation/html-binding.html)
+- [`class`](https://knockoutjs.com/documentation/css-binding.html)
+- [`css`](https://knockoutjs.com/documentation/css-binding.html)
+- [`style`](https://knockoutjs.com/documentation/style-binding.html)
+- [`attr`](https://knockoutjs.com/documentation/attr-binding.html)
 
 ## Installation
 
