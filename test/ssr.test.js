@@ -116,3 +116,21 @@ test("renders using custom plugin", async () => {
   );
   assert(document.includes(`>${translations.fr.greeting}<`));
 });
+
+test("renders style binding on element", async () => {
+  const { document } = await render(html`
+    <!-- ko ssr: {} -->
+    <div data-bind="style: { color: 'red' }"></div>
+    <!-- /ko -->
+  `);
+  assert(/style=["'][^]*color:\s*red/.test(document));
+});
+
+test("renders attr binding on element", async () => {
+  const { document } = await render(html`
+    <!-- ko ssr: {} -->
+    <div data-bind="attr: { title: 'Hello' }"></div>
+    <!-- /ko -->
+  `);
+  assert(/title=["'][^]*Hello/.test(document));
+});
