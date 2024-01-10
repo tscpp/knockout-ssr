@@ -1,4 +1,5 @@
-import * as parse5 from "./_parse5.js";
+import * as p5 from "parse5";
+import type * as p5t from "../../node_modules/parse5/dist/tree-adapters/default.js";
 
 const virtualElementStart = /\s*ko\s+([^\s]+)\s*:([^]*)/;
 const virtualElementEnd = /\s*\/ko\s([^]*)/;
@@ -66,7 +67,7 @@ export class Position {
   }
 }
 
-export function parse5ToRange(location: parse5.Token.Location): Range {
+export function p5ToRange(location: p5.Token.Location): Range {
   return new Range(
     new Position(
       location.startLine - 1,
@@ -191,10 +192,10 @@ export class Document extends Node {
 }
 
 export function parse(document: string): Document {
-  const root = parse5.parseFragment(document, { sourceCodeLocationInfo: true });
+  const root = p5.parseFragment(document, { sourceCodeLocationInfo: true });
   const iter = root.childNodes[Symbol.iterator]();
   let children: Node[] = [];
-  let result: IteratorResult<parse5.Node> | undefined;
+  let result: IteratorResult<p5t.Node> | undefined;
 
   while (!(result = iter.next()).done) {
     children.push(parseNode(result.value, iter));
@@ -203,31 +204,31 @@ export function parse(document: string): Document {
   return new Document(children, new Range(Position.zero, Position.zero));
 }
 
-function parseNode(node: parse5.Node, iter: Iterator<parse5.Node>): Node {
+function parseNode(node: p5t.Node, iter: Iterator<p5t.Node>): Node {
   switch (true) {
-    case parse5.isTextNode(node): {
-      return new Text(node.value, parse5ToRange(node.sourceCodeLocation!));
+    case isP5TextNode(node): {
+      return new Text(node.value, p5ToRange(node.sourceCodeLocation!));
     }
-    case parse5.isCommentNode(node): {
+    case isP5CommentNode(node): {
       if (virtualElementStart.test(node.data)) {
         const [binding, param] = virtualElementStart
           .exec(node.data)!
           .slice(1) as [string, string];
 
         let balance = 1;
-        let children: parse5.Node[] = [];
-        let result: IteratorResult<parse5.Node> | undefined;
-        let endComment: parse5.CommentNode | undefined;
+        let children: p5t.Node[] = [];
+        let result: IteratorResult<p5t.Node> | undefined;
+        let endComment: p5t.CommentNode | undefined;
 
         while (!(result = iter.next()).done) {
-          if (parse5.isCommentNode(result.value)) {
+          if (isP5CommentNode(result.value)) {
             if (virtualElementStart.test(result.value.data)) {
               ++balance;
             } else if (virtualElementEnd.test(result.value.data)) {
               --balance;
 
               if (balance === 0) {
-                endComment = result.value as parse5.CommentNode;
+                endComment = result.value as p5t.CommentNode;
                 break;
               }
             }
@@ -242,7 +243,7 @@ function parseNode(node: parse5.Node, iter: Iterator<parse5.Node>): Node {
 
         const iter2 = children[Symbol.iterator]();
         let children2: Node[] = [];
-        let result2: IteratorResult<parse5.Node> | undefined;
+        let result2: IteratorResult<p5t.Node> | undefined;
 
         while (!(result2 = iter2.next()).done) {
           children2.push(parseNode(result2.value, iter2));
@@ -252,24 +253,24 @@ function parseNode(node: parse5.Node, iter: Iterator<parse5.Node>): Node {
           binding,
           param,
           children2,
-          new Comment(node.data, parse5ToRange(node.sourceCodeLocation!)),
+          new Comment(node.data, p5ToRange(node.sourceCodeLocation!)),
           new Comment(
             endComment.data,
-            parse5ToRange(endComment.sourceCodeLocation!),
+            p5ToRange(endComment.sourceCodeLocation!),
           ),
           new Range(
-            parse5ToRange(node.sourceCodeLocation!).start,
-            parse5ToRange(endComment.sourceCodeLocation!).end,
+            p5ToRange(node.sourceCodeLocation!).start,
+            p5ToRange(endComment.sourceCodeLocation!).end,
           ),
         );
       } else {
-        return new Comment(node.data, parse5ToRange(node.sourceCodeLocation!));
+        return new Comment(node.data, p5ToRange(node.sourceCodeLocation!));
       }
     }
-    case parse5.isElement(node): {
+    case isP5Element(node): {
       const iter = node.childNodes[Symbol.iterator]();
       const children: Node[] = [];
-      let current: IteratorResult<parse5.Node> | undefined;
+      let current: IteratorResult<p5t.Node> | undefined;
 
       while (!(current = iter.next()).done) {
         children.push(parseNode(current.value, iter));
@@ -284,11 +285,11 @@ function parseNode(node: parse5.Node, iter: Iterator<parse5.Node>): Node {
               attr.value,
               attr.namespace,
               attr.prefix,
-              parse5ToRange(node.sourceCodeLocation!.attrs![attr.name]!),
+              p5ToRange(node.sourceCodeLocation!.attrs![attr.name]!),
             ),
         ),
         children,
-        parse5ToRange(node.sourceCodeLocation!),
+        p5ToRange(node.sourceCodeLocation!),
       );
     }
     default: {
@@ -316,4 +317,16 @@ export function isParentNode(
     node instanceof VirtualElement ||
     node instanceof Document
   );
+}
+
+function isP5TextNode(node: p5t.Node): node is p5t.TextNode {
+  return node.nodeName === "#text";
+}
+
+function isP5CommentNode(node: p5t.Node): node is p5t.CommentNode {
+  return node.nodeName === "#comment";
+}
+
+function isP5Element(node: p5t.Node): node is p5t.Element {
+  return node.nodeName !== "#text" && node.nodeName !== "#comment";
 }

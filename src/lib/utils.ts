@@ -3,10 +3,11 @@ import {
   Position,
   Range,
   VirtualElement,
-  parse5ToRange,
-} from "./parsers/html.js";
+  p5ToRange,
+} from "./parser.js";
 import MagicString from "magic-string";
-import * as parse5 from "./parsers/_parse5.js";
+import * as p5 from "parse5";
+import type * as p5t from "../../node_modules/parse5/dist/tree-adapters/default.js";
 import inlineStyleParser from "inline-style-parser";
 
 const parseInlineStyle =
@@ -171,11 +172,10 @@ export function getAttribute(
   element: Element,
   name: string,
 ): string | null {
-  const fragment5 = parse5.parseFragment(
-    generated.slice(...element.range.offset),
-    { sourceCodeLocationInfo: true },
-  );
-  const element5 = fragment5.childNodes[0] as parse5.Element;
+  const fragment5 = p5.parseFragment(generated.slice(...element.range.offset), {
+    sourceCodeLocationInfo: true,
+  });
+  const element5 = fragment5.childNodes[0] as p5t.Element;
   const attr5 = element5.attrs.find((attr) => attr.name === name);
   return attr5?.value ?? null;
 }
@@ -186,14 +186,13 @@ export function setAttribute(
   name: string,
   value: string | null,
 ) {
-  const fragment5 = parse5.parseFragment(
-    generated.slice(...element.range.offset),
-    { sourceCodeLocationInfo: true },
-  );
-  const element5 = fragment5.childNodes[0] as parse5.Element;
+  const fragment5 = p5.parseFragment(generated.slice(...element.range.offset), {
+    sourceCodeLocationInfo: true,
+  });
+  const element5 = fragment5.childNodes[0] as p5t.Element;
 
   if (element5.attrs.find((attr) => attr.name === name)) {
-    const range = parse5ToRange(element5.sourceCodeLocation!.attrs![name]!);
+    const range = p5ToRange(element5.sourceCodeLocation!.attrs![name]!);
 
     if (value === null) {
       generated.remove(range.start.offset, range.end.offset);

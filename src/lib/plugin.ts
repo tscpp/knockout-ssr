@@ -1,5 +1,5 @@
 import MagicString from "magic-string";
-import { Element } from "./parsers/html.js";
+import { Element } from "./parser.js";
 import { Binding } from "./ssr.js";
 import * as utils from "./utils.js";
 

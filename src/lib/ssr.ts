@@ -4,7 +4,7 @@ import {
   VirtualElement,
   isParentNode,
   parse,
-} from "./parsers/html.js";
+} from "./parser.js";
 import * as acorn from "acorn";
 import assert from "node:assert/strict";
 import MagicString from "magic-string";
