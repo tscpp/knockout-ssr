@@ -40,8 +40,7 @@
   "scripts": {
     "build": "node ./scripts/build.js",
     "format": "prettier --write .",
-    "prepublishOnly": "npm run build && npm run test",
-    "release": "np",
+    "release": "npm run build && npm run test && cd dist && np --no-tests",
     "test": "node test/start.js"
   },
   "dependencies": {
@@ -84,9 +83,5 @@
       "rollup",
       "vite"
     ]
-  },
-  "np": {
-    "yarn": false,
-    "contents": "dist"
   }
 }
