@@ -2,6 +2,7 @@ import { validate } from "schema-utils";
 import type { Schema } from "schema-utils/declarations/validate.js";
 import type { LoaderDefinitionFunction } from "webpack";
 import { render } from "../lib/exports.js";
+import { SSROptions } from "../lib/ssr.js";
 
 const schema: Schema = {
   type: "object",
@@ -35,7 +36,12 @@ const loader: LoaderDefinitionFunction = function (source) {
     return;
   }
 
-  render(source, options)
+  const renderOptions: SSROptions = {
+    parent: this.resourcePath,
+    ...options,
+  };
+
+  render(source, renderOptions)
     .then(({ document }) => callback(null, document))
     .catch(callback);
 };
