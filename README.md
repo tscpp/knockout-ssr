@@ -111,7 +111,10 @@ module.exports = {
     rules: [
       {
         test: /\.html$/,
-        use: ['knockout-ssr/webpack'],
+        use: [
+          'raw-loader',
+          'knockout-ssr/webpack',
+        ],
       },
     ],
   },
