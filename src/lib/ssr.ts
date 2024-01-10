@@ -1,3 +1,10 @@
+import * as acorn from "acorn";
+import * as acornWalk from "acorn-walk";
+import { resolve as importMetaResolve } from "import-meta-resolve";
+import MagicString from "magic-string";
+import assert from "node:assert/strict";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   Element,
   Node,
@@ -5,15 +12,8 @@ import {
   isParentNode,
   parse,
 } from "./parser.js";
-import * as acorn from "acorn";
-import assert from "node:assert/strict";
-import MagicString from "magic-string";
-import * as acornWalk from "acorn-walk";
-import { getInnerRange } from "./utils.js";
 import { Plugin, builtins } from "./plugin.js";
-import { resolve } from "node:path";
-import { resolve as importMetaResolve } from "import-meta-resolve";
-import { pathToFileURL } from "node:url";
+import { getInnerRange } from "./utils.js";
 
 export class Binding {
   constructor(

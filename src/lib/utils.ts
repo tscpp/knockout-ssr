@@ -1,3 +1,7 @@
+import inlineStyleParser from "inline-style-parser";
+import MagicString from "magic-string";
+import * as p5 from "parse5";
+import type * as p5t from "../../node_modules/parse5/dist/tree-adapters/default.js";
 import {
   Element,
   Position,
@@ -5,10 +9,6 @@ import {
   VirtualElement,
   p5ToRange,
 } from "./parser.js";
-import MagicString from "magic-string";
-import * as p5 from "parse5";
-import type * as p5t from "../../node_modules/parse5/dist/tree-adapters/default.js";
-import inlineStyleParser from "inline-style-parser";
 
 const parseInlineStyle =
   inlineStyleParser as unknown as typeof inlineStyleParser.default;
