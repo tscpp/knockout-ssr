@@ -42,7 +42,7 @@
     "format": "prettier --write .",
     "prepublishOnly": "npm run build && npm run test",
     "release": "np",
-    "test": "node --test"
+    "test": "node test/start.js"
   },
   "dependencies": {
     "@rollup/pluginutils": "^5.1.0",
@@ -62,6 +62,7 @@
     "@types/node": "^20.10.6",
     "@types/yargs": "^17.0.32",
     "execa": "^8.0.1",
+    "globby": "^14.0.0",
     "np": "^9.2.0",
     "rollup": "^4.9.2",
     "source-map-support": "^0.5.21",
