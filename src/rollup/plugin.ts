@@ -1,6 +1,5 @@
-import { FilterPattern, createFilter } from "@rollup/pluginutils";
+import { FilterPattern, createFilter, dataToEsm } from "@rollup/pluginutils";
 import type { Plugin } from "rollup";
-import { pathToFileURL } from "url";
 import { RenderOptions, render } from "../lib/ssr.js";
 
 export interface KnockoutSSRPluginOptions extends RenderOptions {
@@ -21,15 +20,13 @@ export function knockoutSSR(options?: KnockoutSSRPluginOptions): Plugin {
         return;
       }
 
-      const url = pathToFileURL(id).toString();
-
       const generated = await render(code, {
         ...options,
-        parent: url,
+        parent: id,
       });
 
       return {
-        code: generated.document,
+        code: dataToEsm(generated.document),
         map: null,
       };
     },
