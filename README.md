@@ -38,19 +38,29 @@ In this virtual element, all compatible bindings are rendered. Additionally, all
 
 ### Supported Bindings
 
-> [!IMPORTANT]  
-> This is still a proof of concept. More bindings will be implemented later. Flow control bindings (if, foreach, etc.) are planned to be implemented later.
+Here you can see a list of implemented (supported) and planned bindings.
 
-`knockout-ssr` supports the following standard knockout bindings:
 
-- [`visible`](https://knockoutjs.com/documentation/visible-binding.html)
-- [`hidden`](https://knockoutjs.com/documentation/visible-binding.html)
-- [`text`](https://knockoutjs.com/documentation/text-binding.html)
-- [`html`](https://knockoutjs.com/documentation/html-binding.html)
-- [`class`](https://knockoutjs.com/documentation/css-binding.html)
-- [`css`](https://knockoutjs.com/documentation/css-binding.html)
-- [`style`](https://knockoutjs.com/documentation/style-binding.html)
-- [`attr`](https://knockoutjs.com/documentation/attr-binding.html)
+
+| Name                                            | Status |
+| ----------------------------------------------- | ------ |
+| `visible`/`hidden`                              | ✅ Completed     |
+| `text`                                          | ✅ Completed     |
+| `html`                                          | ✅ Completed     |
+| `class`                                         | ✅ Completed     |
+| `css`                                           | ✅ Completed     |
+| `style`                                         | ✅ Completed     |
+| `attr`                                          | ✅ Completed     |
+| `if`/`ifnot`                                    | 🧪 Partial<sup>1</sup>     |
+| `with`                                          | 🚧 Planned     |
+| `let`                                           | 🚧 Planned     |
+| `value`                                         | 🚧 Planned     |
+| `textInput`                                     | 🚧 Planned     |
+| `input`                                         | 🚧 Planned     |
+| `checked`                                       | 🚧 Planned     |
+| Handlebars/Mustache/Knockout.Punches `{{text}}` | 🚧 Planned     |
+
+1. Only `if` binding is supported.
 
 ## Installation
 
@@ -151,7 +161,8 @@ const document = `
 `;
 
 const generated = await render(document, {
-  plugins: [...]
+  plugins: [...],
+  filename: '...',
 });
 
 generated.document
@@ -208,6 +219,28 @@ const i18n: Plugin = {
 };
 
 export default i18n;
+```
+
+The `alter` method can be used to modify the binding contexted used server-side.
+
+```ts
+const themePlugin: Plugin = {
+  filter: (binding) => binding.name === "theme",
+  alter: (context, binding) => {
+    context.$data.theme = binding.value;
+  },
+};
+```
+
+Additionally, the `alter` method can stop propagation and prevent children from being server-side rendered.
+
+```ts
+const noSsrPlugin: Plugin = {
+  filter: (binding) => binding.name === "noSsr",
+  alter: (_context, _binding, stop) => {
+    stop();
+  },
+};
 ```
 
 ## License
