@@ -72,6 +72,9 @@
     "vite": "^5.0.10",
     "webpack": "^5.89.0"
   },
+  "peerDependencies": {
+    "knockout": "^3.5.1"
+  },
   "engines": {
     "node": ">=20.0.0"
   },

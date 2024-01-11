@@ -1,13 +1,22 @@
 import MagicString from "magic-string";
 import { Element } from "./parser.js";
-import { Binding } from "./ssr.js";
+import { Binding, BindingContext } from "./ssr.js";
 import * as utils from "./utils.js";
 
 export interface Plugin {
   filter: (binding: Binding) => boolean;
   ssr?:
-    | ((binding: Binding, generated: MagicString) => void | PromiseLike<void>)
+    | ((
+        binding: Binding,
+        generated: MagicString,
+        context: BindingContext,
+      ) => void | PromiseLike<void>)
     | undefined;
+  alter?: (
+    context: BindingContext,
+    binding: Binding,
+    stop: () => void,
+  ) => void | BindingContext | PromiseLike<void> | PromiseLike<BindingContext>;
 }
 
 export const builtins: Plugin[] = [
@@ -15,7 +24,10 @@ export const builtins: Plugin[] = [
     filter: (binding) => binding.name === "text",
     ssr(binding, generated) {
       const asHtml = utils.escapeHtml(String(binding.value));
-      const innerRange = utils.getInnerRange(binding.parent, generated.original);
+      const innerRange = utils.getInnerRange(
+        binding.parent,
+        generated.original,
+      );
 
       if (innerRange.isEmpty) {
         generated.appendLeft(innerRange.start.offset, asHtml);
@@ -32,7 +44,10 @@ export const builtins: Plugin[] = [
     filter: (binding) => binding.name === "html",
     ssr(binding, generated) {
       const asHtml = String(binding.value);
-      const innerRange = utils.getInnerRange(binding.parent, generated.original);
+      const innerRange = utils.getInnerRange(
+        binding.parent,
+        generated.original,
+      );
 
       if (innerRange.isEmpty) {
         generated.appendLeft(innerRange.start.offset, asHtml);
@@ -98,7 +113,10 @@ export const builtins: Plugin[] = [
     },
   },
   {
-    filter: (binding) => binding.name === "style" && !!binding.value && binding.parent instanceof Element,
+    filter: (binding) =>
+      binding.name === "style" &&
+      !!binding.value &&
+      binding.parent instanceof Element,
     ssr(binding, generated) {
       const element = binding.parent as Element;
 
@@ -108,7 +126,10 @@ export const builtins: Plugin[] = [
     },
   },
   {
-    filter: (binding) => binding.name === "attr" && !!binding.value && binding.parent instanceof Element,
+    filter: (binding) =>
+      binding.name === "attr" &&
+      !!binding.value &&
+      binding.parent instanceof Element,
     ssr(binding, generated) {
       const element = binding.parent as Element;
 
@@ -116,5 +137,5 @@ export const builtins: Plugin[] = [
         utils.setAttribute(generated, element, key, value);
       }
     },
-  }
+  },
 ];

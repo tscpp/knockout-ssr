@@ -91,8 +91,8 @@ test("renders using custom plugin", async () => {
   /** @type {import('../build/lib/exports.js').Plugin} */
   const i18nPlugin = {
     filter: (binding) => binding.name === "i18n",
-    ssr: (binding, generated) => {
-      const lang = binding.viewModel?.language;
+    ssr: (binding, generated, context) => {
+      const lang = context.$data.language;
       const key = binding.value;
       const asHtml = utils.escapeHtml(translations[lang][key]);
 

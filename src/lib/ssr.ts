@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+  Attribute,
   Element,
   Node,
   VirtualElement,
@@ -14,13 +15,31 @@ import {
 } from "./parser.js";
 import { Plugin, builtins } from "./plugin.js";
 import { getInnerRange } from "./utils.js";
+import ko from "knockout";
+
+export interface BindingContext {
+  $parent?: unknown;
+  $parents: unknown[];
+  $root: unknown;
+  /**
+   * @deprecated This is not available in SSR.
+   */
+  $component?: unknown;
+  $data: unknown;
+  $index?: number;
+  $parentContext?: BindingContext;
+  $rawData: unknown;
+  /**
+   * @deprecated This is not available in SSR.
+   */
+  $componentTemplateNodes?: unknown;
+}
 
 export class Binding {
   constructor(
     public readonly name: string,
     public readonly value: unknown,
     public readonly expression: string,
-    public readonly viewModel: any,
     /** @deprecated */
     public readonly parent: Element | VirtualElement,
   ) {}
@@ -108,96 +127,141 @@ class SSRRenderer {
   }
 
   async #apply(node: VirtualElement) {
-    const param = node.param.trim();
-    let viewModel: any;
+    const toRawData = async (param: string) => {
+      param = param.trim();
+      let data: any;
+      if (param.startsWith("{")) {
+        data = evaluateInitViewModel(param);
+      } else {
+        data = interopModule(
+          await import(
+            importMetaResolve(
+              param,
+              pathToFileURL(resolve(this.#parent)).toString(),
+            )
+          ),
+        );
+      }
+      return data;
+    };
 
-    if (param.startsWith("{")) {
-      viewModel = evaluateInitViewModel(param);
-    } else {
-      viewModel = initViewModel(
-        await import(
-          importMetaResolve(
-            param,
-            pathToFileURL(resolve(this.#parent)).toString(),
-          )
-        ),
-      );
-    }
+    const $rawData = await toRawData(node.param);
+    const $data = ko.utils.unwrapObservable($rawData);
+    const $root = $data;
+    const $parentContext: BindingContext = {
+      $parents: [],
+      $root,
+      $data,
+      $rawData,
+    };
 
     // Remove virtual element start and end comments.
     const innerRange = getInnerRange(node, this.#document.original);
     this.#document.remove(node.range.start.offset, innerRange.start.offset);
     this.#document.remove(innerRange.end.offset, node.range.end.offset);
 
-    const processBinding = async (binding: Binding) => {
+    const renderBinding = async (binding: Binding, context: BindingContext) => {
       for (const plugin of this.#plugins) {
         if (!plugin.filter(binding)) continue;
-
-        await plugin.ssr?.(binding, this.#document);
+        await plugin.ssr?.(binding, this.#document, context);
       }
     };
 
-    const scan = async (node: Node) => {
-      if (node instanceof Element) {
-        const attribute = node.attributes.find((attr) =>
-          this.#attributes.includes(attr.name),
-        );
-        if (attribute?.value) {
-          // Remove the binding attribute from the element.
-          // magic.remove(attribute.range.start.offset, attribute.range.end.offset);
+    const createBindingContext = ($parentContext: BindingContext) => {
+      return {
+        ...$parentContext,
+        $parentContext,
+        $parents: [$parentContext.$data, ...$parentContext.$parents],
+        $parent: $parentContext.$data,
+      };
+    };
 
-          const asObject = `{${attribute.value}}`;
-          const objectExpression = acorn.parseExpressionAt(asObject, 0, {
-            ecmaVersion: "latest",
-            ranges: true,
-          });
-          assert(objectExpression.type === "ObjectExpression");
+    const walk = async (node: Node, parentBindingContext: BindingContext) => {
+      let propagate = true;
 
-          const bindings = objectExpression.properties.map((prop) => {
-            assert(prop.type === "Property");
-            assert(prop.key.type === "Identifier");
+      const createBinding = async (
+        name: string,
+        value: unknown,
+        expression: string,
+        bindingContext: BindingContext,
+      ) => {
+        assert(node instanceof Element || node instanceof VirtualElement);
+        const binding = new Binding(name, value, expression, node);
+        await renderBinding(binding, bindingContext);
+      };
 
-            const expression = transform(asObject.slice(...prop.value.range!));
-            const value = evaluate(expression, viewModel);
+      const bindingsToJs = (attribute: string) => {
+        return `{${attribute}}`;
+      };
 
-            return new Binding(
-              prop.key.name,
-              value,
-              expression,
-              viewModel,
-              node,
-            );
-          });
+      const parseAttributeBindings = (js: string) => {
+        const expr = acorn.parseExpressionAt(js, 0, {
+          ecmaVersion: "latest",
+          ranges: true,
+        });
+        assert(expr.type === "ObjectExpression");
+        return expr;
+      };
 
-          for (const binding of bindings) {
-            await processBinding(binding);
+      const evaluateBinding = (
+        expression: string,
+        $context: BindingContext,
+      ) => {
+        return evaluate(expression, { $context, ...$context });
+      };
+
+      const createBindingsFromAttribute = async (
+        attribute: Attribute,
+        bindingContext: BindingContext,
+      ) => {
+        if (!attribute?.value) return;
+
+        const js = bindingsToJs(attribute.value);
+        const obj = parseAttributeBindings(js);
+
+        for (const prop of obj.properties) {
+          assert(prop.type === "Property");
+          assert(prop.key.type === "Identifier");
+
+          const expression = transform(js.slice(...prop.value.range!));
+          const value = evaluateBinding(expression, bindingContext);
+
+          await createBinding(prop.key.name, value, expression, bindingContext);
+        }
+      };
+
+      const isElement = node instanceof Element;
+      const isVirtualElement = node instanceof VirtualElement;
+      let _bindingContext: BindingContext | undefined;
+
+      if (isElement || isVirtualElement) {
+        _bindingContext = createBindingContext(parentBindingContext);
+
+        if (isElement) {
+          const attributes = node.attributes.filter((attr) =>
+            this.#attributes.includes(attr.name),
+          );
+
+          for (const attribute of attributes) {
+            await createBindingsFromAttribute(attribute, _bindingContext);
           }
+        } else {
+          const expression = transform(node.param);
+          const value = evaluateBinding(expression, _bindingContext);
+
+          await createBinding(node.binding, value, expression, _bindingContext);
         }
       }
 
-      if (node instanceof VirtualElement) {
-        const expression = transform(node.param);
-        const value = evaluate(expression, viewModel);
-
-        const binding = new Binding(
-          node.binding,
-          value,
-          expression,
-          viewModel,
-          node,
-        );
-        await processBinding(binding);
-      }
-
-      if (isParentNode(node)) {
+      if (propagate && isParentNode(node)) {
         for (const child of node.children) {
-          await scan(child);
+          await walk(child, _bindingContext ?? parentBindingContext);
         }
       }
     };
 
     for (const childNode of node.children) {
-      await scan(childNode);
+      await walk(childNode, $parentContext);
     }
   }
 }
@@ -205,7 +269,7 @@ class SSRRenderer {
 /**
  * Find the viewmodel from the exports of a module, and initializes it.
  */
-function initViewModel(exports: any) {
+function interopModule(exports: any) {
   if (exports.default) {
     exports = exports.default;
   }
@@ -227,16 +291,16 @@ function transform(expression: string): string {
     ranges: true,
   });
 
-  // Transform the expression to check if the identifier is defined in the viewmodel,
+  // Transform the expression to check if the identifier is defined in $data,
   // and if not, it uses the identifier from the global scope.
   acornWalk.simple(parsed, {
     Identifier(node: acorn.Identifier) {
       magic.overwrite(
         node.start!,
         node.end!,
-        `(${JSON.stringify(node.name)} in $viewmodel ? $viewmodel.${
+        `(${JSON.stringify(node.name)} in $data ? $data.${node.name} : ${
           node.name
-        } : ${node.name})`,
+        })`,
       );
     },
   });
@@ -245,12 +309,12 @@ function transform(expression: string): string {
 }
 
 /**
- * Evaluates an expression in the context of a viewmodel. Pass the expression
- * through {@link transform} and the viewmodel through {@link initViewModel}
- * first.
+ * Evaluates an expression with the provided binding context.
  */
-function evaluate(expression: string, viewmodel: any) {
-  return new Function("$viewmodel", `return ${expression}`)(viewmodel);
+function evaluate(expression: string, context: object) {
+  return new Function(...Object.keys(context), `return ${expression}`)(
+    ...Object.values(context),
+  );
 }
 
 function evaluateInitViewModel(expression: string) {
