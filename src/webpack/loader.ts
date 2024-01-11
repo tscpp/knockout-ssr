@@ -38,9 +38,10 @@ const loader: LoaderDefinitionFunction = function (source) {
 
   const renderOptions: SSROptions = {
     ...options,
+    filename: this.resourcePath,
     resolve: (specifier, importer) => {
       return new Promise((resolve, reject) => {
-        this.resolve(specifier, importer ?? this.resource, (err, res) => {
+        this.resolve(importer ?? this.resource, specifier, (err, res) => {
           if (err) {
             reject(err);
           } else {
