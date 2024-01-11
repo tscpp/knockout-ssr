@@ -2,12 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import webpack from "webpack";
 import { createFsFromVolume, Volume } from "memfs";
-import { resolve } from "node:path";
 
 test("webpack", (t, done) => {
   const compiler = webpack({
     mode: "production",
-    entry: "./test/assets/entry.js",
+    entry: "./test/unit/assets/entry.js",
     output: {
       path: "/",
       filename: "output.js",
@@ -32,7 +31,7 @@ test("webpack", (t, done) => {
       return done(err);
     }
 
-    const close = (err) => {
+    const close = (err?: unknown) => {
       compiler.close((closeErr) => {
         if (err) {
           return done(err);
@@ -56,7 +55,7 @@ test("webpack", (t, done) => {
         ),
       );
     }
-    
+
     const output = fs.readFileSync("/output.js", "utf8");
     assert(output.includes("SSR"), "generated chunk is missing rendered text");
 

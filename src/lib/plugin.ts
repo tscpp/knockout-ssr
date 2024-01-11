@@ -138,4 +138,39 @@ export const builtins: Plugin[] = [
       }
     },
   },
+  createIfPlugin((binding) => binding.name === "if", true),
+  createIfPlugin((binding) => binding.name === "ifnot", false),
 ];
+
+function createIfPlugin(filter: Plugin["filter"], truthy: boolean): Plugin {
+  return {
+    filter,
+    ssr(binding, generated) {
+      const inner = utils.getInnerRange(binding.parent, generated.original);
+      const innerHtml = generated.original.slice(
+        inner.start.offset,
+        inner.end.offset,
+      );
+      const id = utils.randomId(innerHtml.replace(/\s+/g, " "));
+      const show = Boolean(truthy ? binding.value : !binding.value);
+      const q = binding.quote;
+
+      // Remove contents if not shown
+      if (!show) {
+        generated.remove(inner.start.offset, inner.end.offset);
+      }
+
+      // Append template above element
+      generated.appendLeft(
+        binding.parent.range.start.offset,
+        `<template id="${id}">${innerHtml}</template>`,
+      );
+
+      // Replace binding with "ssr-if"
+      generated.overwrite(
+        ...binding.range.offset,
+        `ssr-if: { template: ${q}${id}${q}, show: ${binding.expression} }`,
+      );
+    },
+  };
+}

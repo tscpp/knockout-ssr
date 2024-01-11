@@ -3,5 +3,8 @@
   "editor.tabSize": 2,
   "search.exclude": {
     "**/dist": true
+  },
+  "files.exclude": {
+    "**/*.tsbuildinfo": true
   }
 }

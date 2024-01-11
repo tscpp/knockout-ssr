@@ -1,4 +1,4 @@
-import { render, utils } from "../dist/index.js";
+import { Plugin, render, utils } from "../../src/lib/exports.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -25,7 +25,7 @@ test("renders data from inline viewmodel", async () => {
 
 test("renders data from external viewmodel", async () => {
   const { document } = await render(html`
-    <!-- ko ssr: ./test/assets/viewmodel.js -->
+    <!-- ko ssr: ./test/unit/assets/viewmodel.js -->
     <div data-bind="text: 'Hello ' + name"></div>
     <!-- /ko -->
   `);
@@ -40,7 +40,7 @@ test("resolves viewmodel from relative path", async () => {
       <!-- /ko -->
     `,
     {
-      parent: "test/assets/unnamed.html",
+      parent: "test/unit/assets/unnamed.html",
     },
   );
   assert(document.includes(">Hello SSR<"));
@@ -88,11 +88,10 @@ test("renders using custom plugin", async () => {
       greeting: "bonjour",
     },
   };
-  /** @type {import('../build/lib/exports.js').Plugin} */
-  const i18nPlugin = {
+  const i18nPlugin: Plugin = {
     filter: (binding) => binding.name === "i18n",
     ssr: (binding, generated, context) => {
-      const lang = context.$data.language;
+      const lang = (context.$data as any).language;
       const key = binding.value;
       const asHtml = utils.escapeHtml(translations[lang][key]);
 

@@ -9,9 +9,7 @@ import {
   VirtualElement,
   p5ToRange,
 } from "./parser.js";
-
-const parseInlineStyle =
-  inlineStyleParser as unknown as typeof inlineStyleParser.default;
+import { createHash } from "node:crypto";
 
 export function getInnerRange(
   node: Element | VirtualElement,
@@ -87,7 +85,7 @@ export function setStyle(
   const attr = element.attributes.find((attr) => attr.name === "style");
 
   if (attr) {
-    const styles = parseInlineStyle(attr.value);
+    const styles = inlineStyleParser(attr.value);
 
     for (const style of styles) {
       if (style.type === "declaration" && style.property === property) {
@@ -103,7 +101,9 @@ export function setStyle(
             attr.value,
           ),
         );
-        range.move(attr.range.start.offset);
+        range.translate(
+          Position.fromOffset(attr.range.start.offset, generated.original),
+        );
         generated.remove(...range.offset);
       }
     }
@@ -206,4 +206,33 @@ export function setAttribute(
       ` ${name}="${escapeHtml(value)}"`,
     );
   }
+}
+
+export function randomId(data = Math.random().toString()) {
+  return createHash("sha256").update(data).digest("base64url").slice(0, 8);
+}
+
+export function escapeJsString(
+  string: string,
+  quote: string | null | undefined = null,
+) {
+  string = string
+    .replaceAll("\\", "\\\\")
+    .replaceAll("\n", "\\n")
+    .replaceAll("\r", "\\r")
+    .replaceAll("\t", "\\t");
+
+  if (quote !== "'") {
+    string = string.replaceAll('"', '\\"');
+  }
+
+  if (quote !== '"') {
+    string = string.replaceAll("'", "\\'");
+  }
+
+  return string;
+}
+
+export function quoteJsString(string: string, quote: string) {
+  return `${quote}${escapeJsString(string, quote)}${quote}`;
 }
