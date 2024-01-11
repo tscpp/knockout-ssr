@@ -63,13 +63,13 @@ const attributes = options.attribute
   .filter((path) => String(path))
   .map((attr) => String(attr));
 const filename = basename(options.input);
-const parent = options.input;
+const path = resolve(options.input);
 
 let { document: generated } = await render(document, {
   plugins,
   useBuiltins,
   attributes,
-  parent,
+  filename: path,
 });
 
 if (options.pretty) {
