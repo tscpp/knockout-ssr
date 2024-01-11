@@ -11,9 +11,6 @@ test("webpack", (t, done) => {
       path: "/",
       filename: "output.js",
     },
-    resolve: {
-      extensions: [".js", ".html"],
-    },
     module: {
       rules: [
         {
