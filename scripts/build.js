@@ -48,6 +48,8 @@ async function runBuild() {
     outDir: "dist",
     format: "esm",
     dts: true,
+    external: ["lightningcss"],
+    skipNodeModulesBundle: true,
     esbuildOptions: (options) => {
       options.chunkNames = "build/[hash]";
     },
