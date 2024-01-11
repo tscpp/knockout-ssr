@@ -9,12 +9,14 @@ import {
   Attribute,
   Element,
   Node,
+  Position,
+  Range,
   VirtualElement,
   isParentNode,
   parse,
 } from "./parser.js";
 import { Plugin, builtins } from "./plugin.js";
-import { getInnerRange } from "./utils.js";
+import { getInnerRange, quoteJsString } from "./utils.js";
 import ko from "knockout";
 
 export interface BindingContext {
@@ -40,8 +42,9 @@ export class Binding {
     public readonly name: string,
     public readonly value: unknown,
     public readonly expression: string,
-    /** @deprecated */
+    public readonly quote: "'" | '"',
     public readonly parent: Element | VirtualElement,
+    public readonly range: Range,
   ) {}
 }
 
@@ -179,17 +182,6 @@ class SSRRenderer {
     const walk = async (node: Node, parentBindingContext: BindingContext) => {
       let propagate = true;
 
-      const createBinding = async (
-        name: string,
-        value: unknown,
-        expression: string,
-        bindingContext: BindingContext,
-      ) => {
-        assert(node instanceof Element || node instanceof VirtualElement);
-        const binding = new Binding(name, value, expression, node);
-        await renderBinding(binding, bindingContext);
-      };
-
       const bindingsToJs = (attribute: string) => {
         return `{${attribute}}`;
       };
@@ -210,10 +202,11 @@ class SSRRenderer {
         return evaluate(expression, { $context, ...$context });
       };
 
-      const createBindingsFromAttribute = async (
+      const renderBindingsFromAttribute = async (
         attribute: Attribute,
         bindingContext: BindingContext,
       ) => {
+        assert(node instanceof Element);
         if (!attribute?.value) return;
 
         const js = bindingsToJs(attribute.value);
@@ -223,10 +216,39 @@ class SSRRenderer {
           assert(prop.type === "Property");
           assert(prop.key.type === "Identifier");
 
-          const expression = transform(js.slice(...prop.value.range!));
+          let start =
+            this.#document.original.indexOf("=", attribute.range.start.offset) +
+            1;
+          const afterEq = this.#document.original[start];
+          if (afterEq === '"') {
+            ++start;
+          }
+          const quote = afterEq === '"' ? "'" : '"';
+
+          const range = new Range(
+            Position.fromOffset(
+              prop.range![0] - 1 + start,
+              this.#document.original,
+            ),
+            Position.fromOffset(
+              prop.range![1] - 1 + start,
+              this.#document.original,
+            ),
+          );
+
+          const expression = transform(js.slice(...prop.value.range!), quote);
           const value = evaluateBinding(expression, bindingContext);
 
-          await createBinding(prop.key.name, value, expression, bindingContext);
+          const binding = new Binding(
+            prop.key.name,
+            value,
+            expression,
+            quote,
+            node,
+            range,
+          );
+
+          await renderBinding(binding, bindingContext);
         }
       };
 
@@ -238,18 +260,37 @@ class SSRRenderer {
         _bindingContext = createBindingContext(parentBindingContext);
 
         if (isElement) {
-          const attributes = node.attributes.filter((attr) =>
-            this.#attributes.includes(attr.name),
+          const attributes = node.attributes.filter((attribute) =>
+            this.#attributes.includes(attribute.name),
           );
 
           for (const attribute of attributes) {
-            await createBindingsFromAttribute(attribute, _bindingContext);
+            await renderBindingsFromAttribute(attribute, _bindingContext);
           }
         } else {
           const expression = transform(node.param);
           const value = evaluateBinding(expression, _bindingContext);
 
-          await createBinding(node.binding, value, expression, _bindingContext);
+          const range = new Range(
+            Position.fromOffset(
+              node.range.start.offset + "<!--".length,
+              this.#document.original,
+            ),
+            Position.fromOffset(
+              node.range.end.offset - "-->".length,
+              this.#document.original,
+            ),
+          );
+
+          const binding = new Binding(
+            node.binding,
+            value,
+            expression,
+            '"',
+            node,
+            range,
+          );
+          await renderBinding(binding, _bindingContext);
         }
       }
 
@@ -284,7 +325,7 @@ function interopModule(exports: any) {
 /**
  * Transform an knockout binding expression to a valid javascript expression.
  */
-function transform(expression: string): string {
+function transform(expression: string, quote = '"'): string {
   const magic = new MagicString(expression);
   const parsed = acorn.parseExpressionAt(expression, 0, {
     ecmaVersion: "latest",
@@ -298,7 +339,7 @@ function transform(expression: string): string {
       magic.overwrite(
         node.start!,
         node.end!,
-        `(${JSON.stringify(node.name)} in $data ? $data.${node.name} : ${
+        `(${quoteJsString(node.name, quote)} in $data ? $data.${node.name} : ${
           node.name
         })`,
       );
@@ -312,9 +353,15 @@ function transform(expression: string): string {
  * Evaluates an expression with the provided binding context.
  */
 function evaluate(expression: string, context: object) {
-  return new Function(...Object.keys(context), `return ${expression}`)(
-    ...Object.values(context),
-  );
+  try {
+    return new Function(...Object.keys(context), `return ${expression}`)(
+      ...Object.values(context),
+    );
+  } catch (error) {
+    throw new Error(`Failed to evaluate expression: ${expression}`, {
+      cause: error,
+    });
+  }
 }
 
 function evaluateInitViewModel(expression: string) {

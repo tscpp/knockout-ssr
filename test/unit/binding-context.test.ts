@@ -1,5 +1,5 @@
 import test from "node:test";
-import { render } from "../dist/index.js";
+import { render } from "../../src/lib/exports.js";
 import assert from "node:assert/strict";
 
 test("has binding context", async () => {

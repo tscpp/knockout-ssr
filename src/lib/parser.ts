@@ -51,19 +51,10 @@ export class Position {
     public offset: number,
   ) {}
 
-  move(line: number, column: number): void;
-  move(offset: number): void;
-  move(...args: [number, number] | [number]): void {
-    if (args.length === 1) {
-      const position = Position.fromOffset(args[0], "");
-      this.line = position.line;
-      this.column = position.column;
-      this.offset = position.offset;
-    } else {
-      this.line += args[0];
-      this.column += args[1];
-      this.offset += args[1];
-    }
+  translate(to: Position): void {
+    this.line += to.line;
+    this.column += to.column;
+    this.offset += to.offset;
   }
 }
 
@@ -113,16 +104,10 @@ export class Range {
     return this.start.offset === this.end.offset;
   }
 
-  move(line: number, column: number): void;
-  move(offset: number): void;
-  move(...args: [number, number] | [number]): void {
-    if (args.length === 1) {
-      this.start.move(...args);
-      this.end.move(...args);
-    } else {
-      this.start.move(...args);
-      this.end.move(...args);
-    }
+  translate(position: Position): this {
+    this.start.translate(position);
+    this.end.translate(position);
+    return this;
   }
 }
 

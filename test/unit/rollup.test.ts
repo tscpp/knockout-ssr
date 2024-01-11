@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { rollup } from "rollup";
-import knockoutSSR from "../dist/rollup/index.js";
+import knockoutSSR from "../../src/rollup/plugin.js";
 
 test("rollup", async () => {
   const build = await rollup({
-    input: "test/assets/view.html",
+    input: "test/unit/assets/view.html",
     plugins: [knockoutSSR()],
   });
 
