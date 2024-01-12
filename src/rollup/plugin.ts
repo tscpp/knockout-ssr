@@ -22,7 +22,11 @@ export function knockoutSSR(options?: KnockoutSSRPluginOptions): Plugin {
 
       const generated = await render(code, {
         ...options,
-        parent: id,
+        filename: id,
+        resolve: async (specifier) => {
+          const resolved = await this.resolve(specifier, id);
+          return resolved?.id ?? null;
+        },
       });
 
       return {

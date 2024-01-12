@@ -40,25 +40,23 @@ In this virtual element, all compatible bindings are rendered. Additionally, all
 
 Here you can see a list of implemented (supported) and planned bindings.
 
-
-
-| Name                                            | Status |
-| ----------------------------------------------- | ------ |
-| `visible`/`hidden`                              | ✅ Completed     |
-| `text`                                          | ✅ Completed     |
-| `html`                                          | ✅ Completed     |
-| `class`                                         | ✅ Completed     |
-| `css`                                           | ✅ Completed     |
-| `style`                                         | ✅ Completed     |
-| `attr`                                          | ✅ Completed     |
-| `if`/`ifnot`                                    | 🧪 Partial<sup>1</sup>     |
-| `with`                                          | 🚧 Planned     |
-| `let`                                           | 🚧 Planned     |
-| `value`                                         | 🚧 Planned     |
-| `textInput`                                     | 🚧 Planned     |
-| `input`                                         | 🚧 Planned     |
-| `checked`                                       | 🚧 Planned     |
-| Handlebars/Mustache/Knockout.Punches `{{text}}` | 🚧 Planned     |
+| Name                                            | Status                 |
+| ----------------------------------------------- | ---------------------- |
+| `visible`/`hidden`                              | ✅ Completed           |
+| `text`                                          | ✅ Completed           |
+| `html`                                          | ✅ Completed           |
+| `class`                                         | ✅ Completed           |
+| `css`                                           | ✅ Completed           |
+| `style`                                         | ✅ Completed           |
+| `attr`                                          | ✅ Completed           |
+| `if`/`ifnot`                                    | 🧪 Partial<sup>1</sup> |
+| `with`                                          | 🚧 Planned             |
+| `let`                                           | 🚧 Planned             |
+| `value`                                         | 🚧 Planned             |
+| `textInput`                                     | 🚧 Planned             |
+| `input`                                         | 🚧 Planned             |
+| `checked`                                       | 🚧 Planned             |
+| Handlebars/Mustache/Knockout.Punches `{{text}}` | 🚧 Planned             |
 
 1. Only `if` binding is supported.
 

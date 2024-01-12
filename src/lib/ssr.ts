@@ -4,7 +4,7 @@ import { resolve as importMetaResolve } from "import-meta-resolve";
 import MagicString from "magic-string";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   Attribute,
   Element,
@@ -74,8 +74,18 @@ export interface SSROptions extends RenderOptions {
    * The path of the file being processed. This is used to resolve relative
    * paths within the document. If not specified, paths will be resolved
    * relative to the current working directory.
+   *
+   * @deprecated Use {@link filename} instead.
    */
   parent?: string | undefined;
+
+  /**
+   * The path of the file being processed. Used to resolve relative imports
+   * within the document.
+   */
+  filename?: string | undefined;
+
+  resolve?: (specifier: string) => Promise<string | null>;
 }
 
 export interface SSRResult {
@@ -96,16 +106,44 @@ class SSRRenderer {
   #document: MagicString;
   #plugins: Plugin[];
   #attributes: string[];
-  #parent: string;
+  #resolve: (specifier: string) => Promise<string | null>;
+  #filename: string;
 
   constructor(document: string, options?: SSROptions | undefined) {
-    this.#document = new MagicString(document);
+    this.#document = new MagicString(document, {
+      filename: options?.filename!,
+    });
     this.#plugins = [
       ...(options?.useBuiltins !== false ? builtins : []),
       ...(options?.plugins ?? []),
     ];
     this.#attributes = options?.attributes ?? ["data-bind"];
-    this.#parent = options?.parent ?? resolve("unnamed.html");
+
+    this.#filename = resolve(
+      options?.filename ?? options?.parent ?? "knockout-ssr.html",
+    );
+    this.#resolve =
+      options?.resolve ??
+      (async (specifier) => {
+        return fileURLToPath(
+          importMetaResolve(
+            specifier,
+            pathToFileURL(this.#filename).toString(),
+          ),
+        );
+      });
+  }
+
+  async #forceResolveUrl(specifier: string) {
+    const resolved = await this.#resolve(specifier);
+    if (!resolved) {
+      throw new Error(
+        `Cannot resolve ${specifier}${
+          this.#filename ? ` from ${this.#filename}` : ""
+        }.`,
+      );
+    }
+    return pathToFileURL(resolved).toString();
   }
 
   async render(): Promise<SSRResult> {
@@ -136,14 +174,7 @@ class SSRRenderer {
       if (param.startsWith("{")) {
         data = evaluateInitViewModel(param);
       } else {
-        data = interopModule(
-          await import(
-            importMetaResolve(
-              param,
-              pathToFileURL(resolve(this.#parent)).toString(),
-            )
-          ),
-        );
+        data = interopModule(await import(await this.#forceResolveUrl(param)));
       }
       return data;
     };

@@ -17,7 +17,7 @@ test("webpack", (t, done) => {
           test: /\.html$/,
           // Apparently, the first loader in the array is the last one to run.
           // ¯\_(ツ)_/¯
-          use: ["raw-loader", "./dist/webpack/index"],
+          use: ["raw-loader", "./src/webpack/loader.ts"],
         },
       ],
     },
