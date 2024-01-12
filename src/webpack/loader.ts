@@ -1,4 +1,5 @@
 import { validate } from "schema-utils";
+import { urlToRequest } from "loader-utils";
 import type { Schema } from "schema-utils/declarations/validate.js";
 import type { LoaderDefinitionFunction } from "webpack";
 import { render } from "../lib/exports.js";
@@ -36,16 +37,20 @@ const loader: LoaderDefinitionFunction = function (source) {
     return;
   }
 
+  const filename = urlToRequest(this.resourcePath);
+
   const renderOptions: SSROptions = {
     ...options,
-    filename: this.resourcePath,
-    resolve: (specifier, importer) => {
+    filename,
+    resolve: (specifier) => {
       return new Promise((resolve, reject) => {
-        this.resolve(importer ?? this.resource, specifier, (err, res) => {
+        this.resolve(this.context, specifier, (err, result) => {
           if (err) {
             reject(err);
+          } else if (!result) {
+            reject(new Error(`Webpack could not resolve ${specifier}`));
           } else {
-            resolve(res || null);
+            resolve(result);
           }
         });
       });

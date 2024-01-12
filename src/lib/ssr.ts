@@ -85,10 +85,7 @@ export interface SSROptions extends RenderOptions {
    */
   filename?: string | undefined;
 
-  resolve?: (
-    specifier: string,
-    importer: string | undefined,
-  ) => Promise<string | null>;
+  resolve?: (specifier: string) => Promise<string | null>;
 }
 
 export interface SSRResult {
@@ -109,10 +106,7 @@ class SSRRenderer {
   #document: MagicString;
   #plugins: Plugin[];
   #attributes: string[];
-  #resolve: (
-    specifier: string,
-    importer: string | undefined,
-  ) => Promise<string | null>;
+  #resolve: (specifier: string) => Promise<string | null>;
   #filename: string;
 
   constructor(document: string, options?: SSROptions | undefined) {
@@ -130,21 +124,23 @@ class SSRRenderer {
     );
     this.#resolve =
       options?.resolve ??
-      (async (specifier, importer) => {
+      (async (specifier) => {
         return fileURLToPath(
           importMetaResolve(
             specifier,
-            pathToFileURL(importer ?? this.#filename).toString(),
+            pathToFileURL(this.#filename).toString(),
           ),
         );
       });
   }
 
-  async #forceResolveUrl(specifier: string, importer = this.#filename) {
-    const resolved = await this.#resolve(specifier, importer);
-    if (resolved === null) {
+  async #forceResolveUrl(specifier: string) {
+    const resolved = await this.#resolve(specifier);
+    if (!resolved) {
       throw new Error(
-        `Cannot resolve ${specifier}${importer ? ` from ${importer}` : ""}.`,
+        `Cannot resolve ${specifier}${
+          this.#filename ? ` from ${this.#filename}` : ""
+        }.`,
       );
     }
     return pathToFileURL(resolved).toString();

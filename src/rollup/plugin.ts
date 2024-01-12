@@ -23,8 +23,8 @@ export function knockoutSSR(options?: KnockoutSSRPluginOptions): Plugin {
       const generated = await render(code, {
         ...options,
         filename: id,
-        resolve: async (specifier, importer) => {
-          const resolved = await this.resolve(specifier, importer);
+        resolve: async (specifier) => {
+          const resolved = await this.resolve(specifier, id);
           return resolved?.id ?? null;
         },
       });
