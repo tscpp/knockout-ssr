@@ -74,66 +74,11 @@ npm install --save-dev knockout-ssr
 
 ### Integration
 
-`knockout-ssr` is pre-equipped with integrations for various build tools. All integrations are located under `knockout-ssr/<build-tool-name>`, e.g. `knockout-ssr/vite`. For other build tools or custom build processes, use either the [CLI](#cli) or [API](#api).
+`knockout-ssr` is pre-equipped with integrations for various build tools. See below for the complete list of supported build tools. For other tools or custom build processes, use either the [CLI](#cli) or [API](#api).
 
-<ul>
-<li>
-<details>
-<summary>Vite</summary>
- 
-```js
-import knockoutSSR from 'knockout-ssr/vite';
-
-export default defineConfig({
-...
-plugins: [knockoutSSR()],
-});
-
-````
-
-</details>
-</li>
-<li>
-<details>
-<summary>Rollup</summary>
-
-```js
-import knockoutSSR from 'knockout-ssr/rollup'
-
-export default defineConfig({
-  ...
-  plugins: [knockoutSSR()]
-})
-````
-
-</details>
-</li>
-<li>
-<details>
-<summary>Webpack</summary>
-
-```js
-module.exports = {
-  ...
-  module: {
-    rules: [
-      {
-        test: /\.html$/,
-        use: [
-          'raw-loader',
-          'knockout-ssr/webpack',
-        ],
-      },
-    ],
-  },
-};
-```
-
-</details>
-</li>
-</ul>
-
-_Click on any item in the list above to reveal configuration._
+- [Rollup](https://rollupjs.org/) - `knockout-ssr/rollup`
+- [Vite](https://vitejs.dev/) - `knockout-ssr/vite`
+- [Webpack](https://webpack.js.org/) - `knockout-ssr/`
 
 ### CLI
 
