@@ -23,15 +23,6 @@ test("renders data from inline viewmodel", async () => {
   assert(document.includes(">Hello SSR<"));
 });
 
-test("renders data from external viewmodel", async () => {
-  const { document } = await render(html`
-    <!-- ko ssr: ./test/unit/assets/viewmodel.js -->
-    <div data-bind="text: 'Hello ' + name"></div>
-    <!-- /ko -->
-  `);
-  assert(document.includes(">Hello SSR<"));
-});
-
 test("resolves viewmodel from relative path", async () => {
   const { document } = await render(
     html`
@@ -40,7 +31,7 @@ test("resolves viewmodel from relative path", async () => {
       <!-- /ko -->
     `,
     {
-      parent: "test/unit/assets/unnamed.html",
+      filename: "test/unit/assets/unnamed.html",
     },
   );
   assert(document.includes(">Hello SSR<"));

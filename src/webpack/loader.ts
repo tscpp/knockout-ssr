@@ -2,8 +2,7 @@ import { validate } from "schema-utils";
 import { urlToRequest } from "loader-utils";
 import type { Schema } from "schema-utils/declarations/validate.js";
 import type { LoaderDefinitionFunction } from "webpack";
-import { render } from "../lib/exports.js";
-import { SSROptions } from "../lib/ssr.js";
+import { render, RenderOptions } from "../lib/exports.js";
 
 const schema: Schema = {
   type: "object",
@@ -39,7 +38,7 @@ const loader: LoaderDefinitionFunction = function (source) {
 
   const filename = urlToRequest(this.resourcePath);
 
-  const renderOptions: SSROptions = {
+  const renderOptions: RenderOptions = {
     ...options,
     filename,
     resolve: (specifier) => {

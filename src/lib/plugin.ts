@@ -1,5 +1,5 @@
 import MagicString from "magic-string";
-import { Binding } from "./ssr.js";
+import { Binding } from "./binding.js";
 import { BindingContext } from "./binding-context.js";
 
 export interface Sibling {

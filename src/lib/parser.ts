@@ -1,5 +1,4 @@
-import * as p5 from "parse5";
-import type * as p5t from "../../node_modules/parse5/dist/tree-adapters/default.js";
+import { p5, p5ToRange, p5t } from "./parse5-utils.js";
 
 const virtualElementStart = /\s*ko\s+([^\s]+)\s*:([^]*)/;
 const virtualElementEnd = /\s*\/ko\s([^]*)/;
@@ -56,17 +55,6 @@ export class Position {
     this.column += to.column;
     this.offset += to.offset;
   }
-}
-
-export function p5ToRange(location: p5.Token.Location): Range {
-  return new Range(
-    new Position(
-      location.startLine - 1,
-      location.startCol - 1,
-      location.startOffset,
-    ),
-    new Position(location.endLine - 1, location.endCol - 1, location.endOffset),
-  );
 }
 
 export class Range {
@@ -283,9 +271,9 @@ function parseNode(node: p5t.Node, iter: Iterator<p5t.Node>): Node {
   }
 }
 
-export function isChildNode(
-  node: Node,
-): node is Element | VirtualElement | Text | Comment {
+export type ChildNode = Element | VirtualElement | Text | Comment;
+
+export function isChildNode(node: Node): node is ChildNode {
   return (
     node instanceof Element ||
     node instanceof VirtualElement ||
@@ -294,9 +282,9 @@ export function isChildNode(
   );
 }
 
-export function isParentNode(
-  node: Node,
-): node is Element | VirtualElement | Document {
+export type ParentNode = Element | VirtualElement | Document;
+
+export function isParentNode(node: Node): node is ParentNode {
   return (
     node instanceof Element ||
     node instanceof VirtualElement ||
