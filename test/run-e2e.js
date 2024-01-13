@@ -9,7 +9,13 @@ execa("npx", ["vite", "test/e2e/www", "--port", String(port)], {
 
 const result = await execa(
   "npx",
-  ["playwright", "test", "-c", "test/e2e/playwright.config.ts"],
+  [
+    "playwright",
+    "test",
+    "-c",
+    "test/e2e/playwright.config.ts",
+    ...process.argv.slice(2),
+  ],
   {
     stdio: ["ignore", "inherit", "inherit"],
     env: {

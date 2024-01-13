@@ -6,7 +6,6 @@ import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
-  Attribute,
   Element,
   Node,
   Position,
@@ -15,32 +14,15 @@ import {
   isParentNode,
   parse,
 } from "./parser.js";
-import { Plugin, builtins } from "./plugin.js";
+import { Plugin, Self, Sibling } from "./plugin.js";
 import { getInnerRange, quoteJsString } from "./utils.js";
 import ko from "knockout";
-
-export interface BindingContext {
-  $parent?: unknown;
-  $parents: unknown[];
-  $root: unknown;
-  /**
-   * @deprecated This is not available in SSR.
-   */
-  $component?: unknown;
-  $data: unknown;
-  $index?: number;
-  $parentContext?: BindingContext;
-  $rawData: unknown;
-  /**
-   * @deprecated This is not available in SSR.
-   */
-  $componentTemplateNodes?: unknown;
-}
+import { BindingContext } from "./binding-context.js";
+import builtins from "./_built-ins.js";
 
 export class Binding {
   constructor(
     public readonly name: string,
-    public readonly value: unknown,
     public readonly expression: string,
     public readonly quote: "'" | '"',
     public readonly parent: Element | VirtualElement,
@@ -93,6 +75,12 @@ export interface SSRResult {
    * The generated document.
    */
   document: string;
+}
+
+interface RenderBindingResult {
+  propagate: boolean;
+  bubble?: (() => Promise<void>) | undefined;
+  extend?: (() => Promise<BindingContext>) | undefined;
 }
 
 export function render(
@@ -156,7 +144,7 @@ class SSRRenderer {
 
   async #scan(node: Node) {
     if (node instanceof VirtualElement && node.binding === "ssr") {
-      await this.#apply(node);
+      await this.#render(node);
       return;
     }
 
@@ -167,8 +155,249 @@ class SSRRenderer {
     }
   }
 
-  async #apply(node: VirtualElement) {
-    const toRawData = async (param: string) => {
+  async #renderBindings(
+    bindings: readonly Binding[],
+    context: BindingContext,
+  ): Promise<RenderBindingResult> {
+    const plugins = bindings.map((binding) =>
+      this.#plugins.find((plugin) => plugin.filter(binding)),
+    );
+
+    for (let i = 0; i < bindings.length; ++i) {
+      const binding = bindings[i]!;
+      const plugin = plugins[i];
+
+      await plugin?.alter?.({
+        binding,
+        context,
+      });
+    }
+
+    const rawValues = bindings.map((binding) =>
+      evaluate(binding.expression, {
+        $context: context,
+        ...context,
+      }),
+    );
+
+    const values = rawValues.map((rawValue) => ko.unwrap(rawValue));
+
+    let bubbles: (() => void | PromiseLike<void>)[] = [];
+
+    const getSibling = (index: number): Sibling => {
+      return {
+        binding: bindings[index]!,
+        context,
+        value: values[index]!,
+        rawValue: rawValues[index]!,
+      };
+    };
+
+    const getSelf = (index: number): Self => {
+      return {
+        ...getSibling(index),
+        siblings: bindings.map((_, i) => getSibling(i)),
+      };
+    };
+
+    for (let i = 0; i < bindings.length; ++i) {
+      const self = getSelf(i);
+      const plugin = plugins[i];
+
+      await plugin?.ssr?.({
+        ...self,
+        generated: this.#document,
+        bubble: (callback) => {
+          bubbles.push(callback);
+        },
+      });
+    }
+
+    const propagate = !plugins.some(
+      (plugin, i) => plugin?.propagate?.(getSelf(i)) === false,
+    );
+
+    const extenders = plugins
+      .filter((plugin) => plugin?.extend)
+      .map((plugin, i) => () => plugin!.extend!({ parent: getSelf(i) }));
+
+    // Only one plugin is expected to provide an extender.
+    // See `extendDecendants`.
+    if (extenders.length > 1) {
+      console.warn("Multiple plugins is extending the binding context.");
+    }
+
+    const extend =
+      extenders.length > 0
+        ? async () => {
+            const contexts = await Promise.all(
+              extenders.map((extend) => extend()),
+            );
+            return contexts.length === 1
+              ? contexts[0]!
+              : contexts.reduce((a, b) => a.extend(b));
+          }
+        : undefined;
+
+    const bubble = async () => {
+      for (const bubble of bubbles) {
+        await bubble();
+      }
+    };
+
+    return {
+      propagate,
+      bubble,
+      extend,
+    };
+  }
+
+  async #getBindingsFromElement(node: Element) {
+    const bindingsToJs = (attribute: string) => {
+      return `{${attribute}}`;
+    };
+
+    const parseAttributeBindings = (js: string) => {
+      const expr = acorn.parseExpressionAt(js, 0, {
+        ecmaVersion: "latest",
+        ranges: true,
+      });
+      assert(
+        expr.type === "ObjectExpression",
+        "Expected an object expression.",
+      );
+      return expr;
+    };
+
+    const attributes = node.attributes.filter((attribute) =>
+      this.#attributes.includes(attribute.name),
+    );
+
+    return attributes.flatMap((attribute) => {
+      if (!attribute?.value) return [];
+
+      const js = bindingsToJs(attribute.value);
+      const obj = parseAttributeBindings(js);
+
+      return obj.properties.map((prop) => {
+        assert(prop.type === "Property", "Expected a property.");
+        assert(prop.key.type === "Identifier", "Expected an identifier.");
+
+        // Find offset where the attribute value starts
+        let start =
+          this.#document.original.indexOf("=", attribute.range.start.offset) +
+          1;
+        const afterEq = this.#document.original[start];
+        if (afterEq === '"') {
+          ++start;
+        }
+        const quote = afterEq === '"' ? "'" : '"';
+
+        // Create binding
+        const expression = transform(js.slice(...prop.value.range!), quote);
+        const range = new Range(
+          Position.fromOffset(
+            prop.range![0] - 1 + start,
+            this.#document.original,
+          ),
+          Position.fromOffset(
+            prop.range![1] - 1 + start,
+            this.#document.original,
+          ),
+        );
+        return new Binding(prop.key.name, expression, quote, node, range);
+      });
+    });
+  }
+
+  async #getBindingsFromVirtualElement(node: VirtualElement) {
+    // Create binding
+    const expression = transform(node.param);
+
+    const m1 = /^\s*ko\s*/.exec(node.start.content);
+    assert(m1, "Expected a knockout comment.");
+
+    const m2 = /\s*^/.exec(node.end.content);
+    assert(m2);
+
+    const start = node.start.range.start.offset + "<!--".length + m1[0].length;
+    const end = node.end.range.end.offset - "-->".length - m2[0].length;
+
+    const range = new Range(
+      Position.fromOffset(start, this.#document.original),
+      Position.fromOffset(end, this.#document.original),
+    );
+    return new Binding(node.binding, expression, '"', node, range);
+  }
+
+  async #walk(node: Node, extend: () => Promise<BindingContext>) {
+    let propagate = true;
+    let extenders: (() => Promise<BindingContext>)[] = [];
+    let context: BindingContext | undefined;
+    let shouldRenderDecendants = true;
+    let bubbles: (() => Promise<void>)[] = [];
+
+    const isElement = node instanceof Element;
+    const isVirtualElement = node instanceof VirtualElement;
+
+    const renderDecendants = async () => {
+      const extendDecendants = async () => {
+        if (extenders.length === 0) {
+          return context
+            ? context.createChildContext(context.$rawData)
+            : extend();
+        } else if (extenders.length === 1) {
+          return extenders[0]!();
+        } else {
+          // Normally, we only want one plugin to extend our context, but if
+          // multiple plugins are extending the context, they are merged.
+          let contexts: BindingContext[] = [];
+          for (const extend of extenders) {
+            contexts.push(await extend());
+          }
+          return contexts.reduce((a, b) => a.extend(b));
+        }
+      };
+
+      if (propagate && isParentNode(node)) {
+        for (const child of node.children) {
+          await this.#walk(child, extendDecendants);
+        }
+      }
+    };
+
+    if (isElement || isVirtualElement) {
+      context = await extend();
+
+      const bindings = isElement
+        ? await this.#getBindingsFromElement(node)
+        : [await this.#getBindingsFromVirtualElement(node)];
+
+      const result = await this.#renderBindings(bindings, context);
+
+      // Plugins can request to stop propagation.
+      shouldRenderDecendants &&= result.propagate;
+
+      if (result.extend) {
+        extenders.push(result.extend);
+      }
+
+      if (result.bubble) {
+        bubbles.push(result.bubble);
+      }
+    }
+
+    if (shouldRenderDecendants) {
+      await renderDecendants();
+    }
+
+    for (const bubble of bubbles) {
+      await bubble();
+    }
+  }
+
+  async #render(node: VirtualElement) {
+    const toData = async (param: string) => {
       param = param.trim();
       let data: any;
       if (param.startsWith("{")) {
@@ -179,161 +408,18 @@ class SSRRenderer {
       return data;
     };
 
-    const $rawData = await toRawData(node.param);
-    const $data = ko.utils.unwrapObservable($rawData);
-    const $root = $data;
-    const $parentContext: BindingContext = {
-      $parents: [],
-      $root,
-      $data,
-      $rawData,
-    };
+    const data = await toData(node.param);
+    const context = new BindingContext(data);
 
     // Remove virtual element start and end comments.
     const innerRange = getInnerRange(node, this.#document.original);
     this.#document.remove(node.range.start.offset, innerRange.start.offset);
     this.#document.remove(innerRange.end.offset, node.range.end.offset);
 
-    const renderBinding = async (binding: Binding, context: BindingContext) => {
-      for (const plugin of this.#plugins) {
-        if (!plugin.filter(binding)) continue;
-        await plugin.ssr?.(binding, this.#document, context);
-      }
-    };
-
-    const createBindingContext = ($parentContext: BindingContext) => {
-      return {
-        ...$parentContext,
-        $parentContext,
-        $parents: [$parentContext.$data, ...$parentContext.$parents],
-        $parent: $parentContext.$data,
-      };
-    };
-
-    const walk = async (node: Node, parentBindingContext: BindingContext) => {
-      let propagate = true;
-
-      const bindingsToJs = (attribute: string) => {
-        return `{${attribute}}`;
-      };
-
-      const parseAttributeBindings = (js: string) => {
-        const expr = acorn.parseExpressionAt(js, 0, {
-          ecmaVersion: "latest",
-          ranges: true,
-        });
-        assert(expr.type === "ObjectExpression");
-        return expr;
-      };
-
-      const evaluateBinding = (
-        expression: string,
-        $context: BindingContext,
-      ) => {
-        return evaluate(expression, { $context, ...$context });
-      };
-
-      const renderBindingsFromAttribute = async (
-        attribute: Attribute,
-        bindingContext: BindingContext,
-      ) => {
-        assert(node instanceof Element);
-        if (!attribute?.value) return;
-
-        const js = bindingsToJs(attribute.value);
-        const obj = parseAttributeBindings(js);
-
-        for (const prop of obj.properties) {
-          assert(prop.type === "Property");
-          assert(prop.key.type === "Identifier");
-
-          let start =
-            this.#document.original.indexOf("=", attribute.range.start.offset) +
-            1;
-          const afterEq = this.#document.original[start];
-          if (afterEq === '"') {
-            ++start;
-          }
-          const quote = afterEq === '"' ? "'" : '"';
-
-          const range = new Range(
-            Position.fromOffset(
-              prop.range![0] - 1 + start,
-              this.#document.original,
-            ),
-            Position.fromOffset(
-              prop.range![1] - 1 + start,
-              this.#document.original,
-            ),
-          );
-
-          const expression = transform(js.slice(...prop.value.range!), quote);
-          const value = evaluateBinding(expression, bindingContext);
-
-          const binding = new Binding(
-            prop.key.name,
-            value,
-            expression,
-            quote,
-            node,
-            range,
-          );
-
-          await renderBinding(binding, bindingContext);
-        }
-      };
-
-      const isElement = node instanceof Element;
-      const isVirtualElement = node instanceof VirtualElement;
-      let _bindingContext: BindingContext | undefined;
-
-      if (isElement || isVirtualElement) {
-        _bindingContext = createBindingContext(parentBindingContext);
-
-        if (isElement) {
-          const attributes = node.attributes.filter((attribute) =>
-            this.#attributes.includes(attribute.name),
-          );
-
-          for (const attribute of attributes) {
-            await renderBindingsFromAttribute(attribute, _bindingContext);
-          }
-        } else {
-          const expression = transform(node.param);
-          const value = evaluateBinding(expression, _bindingContext);
-
-          const range = new Range(
-            Position.fromOffset(
-              node.range.start.offset + "<!--".length,
-              this.#document.original,
-            ),
-            Position.fromOffset(
-              node.range.end.offset - "-->".length,
-              this.#document.original,
-            ),
-          );
-
-          const binding = new Binding(
-            node.binding,
-            value,
-            expression,
-            '"',
-            node,
-            range,
-          );
-          await renderBinding(binding, _bindingContext);
-        }
-      }
-
-      if (propagate && isParentNode(node)) {
-        for (const child of node.children) {
-          await walk(child, _bindingContext ?? parentBindingContext);
-        }
-      }
-    };
-
     for (const childNode of node.children) {
-      await walk(childNode, $parentContext);
+      await this.#walk(childNode, async () =>
+        context.createChildContext(context.$rawData),
+      );
     }
   }
 }
@@ -367,12 +453,12 @@ function transform(expression: string, quote = '"'): string {
   // and if not, it uses the identifier from the global scope.
   acornWalk.simple(parsed, {
     Identifier(node: acorn.Identifier) {
+      const key = quoteJsString(node.name, quote);
+
       magic.overwrite(
         node.start!,
         node.end!,
-        `(${quoteJsString(node.name, quote)} in $data ? $data.${node.name} : ${
-          node.name
-        })`,
+        `(${key} in $context ? $context[${key}] : $data !== null && typeof $data === "object" && ${key} in $data ? $data[${key}] : ${node.name})`,
       );
     },
   });

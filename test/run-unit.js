@@ -10,7 +10,7 @@ if (files.length === 0) {
 
 const result = await execa(
   "node",
-  ["--loader", "ts-node/esm", "--test", ...files],
+  ["--loader", "ts-node/esm", ...process.argv.slice(2), "--test", ...files],
   {
     stdio: "inherit",
     env: {

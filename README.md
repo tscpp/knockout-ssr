@@ -40,25 +40,42 @@ In this virtual element, all compatible bindings are rendered. Additionally, all
 
 Here you can see a list of implemented (supported) and planned bindings.
 
-| Name                                            | Status                 |
-| ----------------------------------------------- | ---------------------- |
-| `visible`/`hidden`                              | ✅ Completed           |
-| `text`                                          | ✅ Completed           |
-| `html`                                          | ✅ Completed           |
-| `class`                                         | ✅ Completed           |
-| `css`                                           | ✅ Completed           |
-| `style`                                         | ✅ Completed           |
-| `attr`                                          | ✅ Completed           |
-| `if`/`ifnot`                                    | 🧪 Partial<sup>1</sup> |
-| `with`                                          | 🚧 Planned             |
-| `let`                                           | 🚧 Planned             |
-| `value`                                         | 🚧 Planned             |
-| `textInput`                                     | 🚧 Planned             |
-| `input`                                         | 🚧 Planned             |
-| `checked`                                       | 🚧 Planned             |
-| Handlebars/Mustache/Knockout.Punches `{{text}}` | 🚧 Planned             |
+| Name                                | Status                       |
+| ----------------------------------- | ---------------------------- |
+| `attr`                              | ✅ Completed                 |
+| `checked`                           | ✅ Completed                 |
+| `class`                             | ✅ Completed                 |
+| `click`                             | ❌ Not supported<sup>1</sup> |
+| `component`                         | ❓ Subsequent<sup>2</sup>    |
+| `css`                               | ✅ Completed                 |
+| `enable`/`disable`                  | ✅ Completed                 |
+| `event`                             | ❌ Not supported<sup>1</sup> |
+| `foreach`                           | 🚧 Planned                   |
+| `hasFocus`                          | ❌ Not supported             |
+| `html`                              | ✅ Completed                 |
+| `if`/`ifnot`                        | ✅ Completed                 |
+| `let`                               | ✅ Completed                 |
+| `options`                           | 🚧 Planned                   |
+| `style`                             | ✅ Completed                 |
+| `submit`                            | ❌ Not supported<sup>1</sup> |
+| `template`                          | ❓ Subsequent<sup>3</sup>    |
+| `text`                              | ✅ Completed                 |
+| `textInput`                         | ✅ Completed                 |
+| `uniqueName`                        | ❌ Not supported<sup>4</sup> |
+| `value`                             | ✅ Completed                 |
+| `visible`/`hidden`                  | ✅ Completed                 |
+| `with`/`using`                      | ✅ Completed                 |
+| Handlebars `{{...}}` (non-standard) | 🚧 Planned<sup>5</sup>       |
 
-1. Only `if` binding is supported.
+<em>
+
+1. Events are not planned to be supported. Server-side rendering events are possible in some cases, however it does not improve SEO or user experience and is hard to integrate with Knockout.
+2. Components are hard to server-side render as it would require the renderer to know the markup of each component, and much additional work. Not planned to be implemented as of now.
+3. The "template" binding is planned to be partially implemented where it can render templates in the same file. Referencing other templates is not planned as of now.
+4. The "unqiueName" binding modifies the view model, which is not possible in ssr.
+5. May take some time to implement.
+
+</em>
 
 ## Installation
 

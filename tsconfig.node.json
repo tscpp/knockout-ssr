@@ -5,8 +5,8 @@
     "./tsconfig.json"
   ],
   "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "types": ["node"]
   },
   "include": ["src"],

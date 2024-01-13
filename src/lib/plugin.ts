@@ -1,176 +1,132 @@
 import MagicString from "magic-string";
-import { Element } from "./parser.js";
-import { Binding, BindingContext } from "./ssr.js";
-import * as utils from "./utils.js";
+import { Binding } from "./ssr.js";
+import { BindingContext } from "./binding-context.js";
 
-export interface Plugin {
-  filter: (binding: Binding) => boolean;
-  ssr?:
-    | ((
-        binding: Binding,
-        generated: MagicString,
-        context: BindingContext,
-      ) => void | PromiseLike<void>)
-    | undefined;
-  alter?: (
-    context: BindingContext,
-    binding: Binding,
-    stop: () => void,
-  ) => void | BindingContext | PromiseLike<void> | PromiseLike<BindingContext>;
+export interface Sibling {
+  /**
+   * This is the parsed binding node, which contains the contents and ranges of
+   * the binding in the original document. Use {@link Binding.parent} to get
+   * the containing element.
+   *
+   * @example <caption>Using the binding's original range to modify the generated document.</caption>
+   * ```js
+   * ssr({ binding, generated }) {
+   *   generated.overwrite(...binding.range.offset, "...");
+   * }
+   * ```
+   */
+  binding: Binding;
+
+  /**
+   * The binding context contains the values available when evaluating the
+   * binding. This should only be modified in the {@link Plugin.alter} hook,
+   * and can be extended for decendants using the {@link Plugin.extend} hook.
+   *
+   * @see https://knockoutjs.com/documentation/binding-context.html
+   */
+  context: BindingContext;
+
+  /**
+   * The unwrapped value evaluated from the binding expression. This is the
+   * same as the rawValue, unless the rawValue is wrapped in any subscribable,
+   * in which case it is the current value of the observable.
+   *
+   * ```js
+   * value === ko.unwrap(rawValue)
+   * ```
+   */
+  value: unknown;
+
+  /**
+   * The "raw" value evaluated from the binding expression. This may be a
+   * wrapped in any subscribable. Use this when passing the data to a child
+   * binding context.
+   *
+   * ```js
+   * ko.unwrap(rawValue) === value
+   * ```
+   */
+  rawValue: unknown;
 }
 
-export const builtins: Plugin[] = [
-  {
-    filter: (binding) => binding.name === "text",
-    ssr(binding, generated) {
-      const asHtml = utils.escapeHtml(String(binding.value));
-      const innerRange = utils.getInnerRange(
-        binding.parent,
-        generated.original,
-      );
+export interface Self extends Sibling {
+  /**
+   * An array of bindings on the same parent element. It's populated only if
+   * the parent element has multiple bindings.
+   *
+   * @example <caption>Retrieving the "as" binding value to extend the child binding context.</caption>
+   * ```
+   * extend({ parent }) {
+   *   const as = parent.siblings.find((sibling) => sibling.binding.name === "as");
+   *   as.value; // "item"
+   * }
+   * ```
+   */
+  siblings: readonly Sibling[];
+}
 
-      if (innerRange.isEmpty) {
-        generated.appendLeft(innerRange.start.offset, asHtml);
-      } else {
-        generated.update(
-          innerRange.start.offset,
-          innerRange.end.offset,
-          asHtml,
-        );
-      }
-    },
-  },
-  {
-    filter: (binding) => binding.name === "html",
-    ssr(binding, generated) {
-      const asHtml = String(binding.value);
-      const innerRange = utils.getInnerRange(
-        binding.parent,
-        generated.original,
-      );
+export interface Plugin {
+  /**
+   * Filter bindings to be handled by the plugin. Once the filter passes, only
+   * that plugin will touch the binding. In other words, only one plugin can
+   * handle one binding.
+   */
+  filter: (binding: Binding) => boolean;
 
-      if (innerRange.isEmpty) {
-        generated.appendLeft(innerRange.start.offset, asHtml);
-      } else {
-        generated.update(
-          innerRange.start.offset,
-          innerRange.end.offset,
-          asHtml,
-        );
-      }
-    },
-  },
-  {
-    filter: (binding) =>
-      binding.name === "visible" && binding.parent instanceof Element,
-    ssr(binding, generated) {
-      utils.setStyle(
-        generated,
-        binding.parent as Element,
-        "display",
-        binding.value ? null : "none",
-      );
-    },
-  },
-  {
-    filter: (binding) =>
-      binding.name === "hidden" && binding.parent instanceof Element,
-    ssr(binding, generated) {
-      utils.setStyle(
-        generated,
-        binding.parent as Element,
-        "display",
-        binding.value ? "none" : null,
-      );
-    },
-  },
-  {
-    filter: (binding) =>
-      binding.name === "class" &&
-      !!binding.value &&
-      binding.parent instanceof Element,
-    ssr(binding, generated) {
-      const element = binding.parent as Element;
-      utils.addClass(generated, element, String(binding.value));
-    },
-  },
-  {
-    filter: (binding) =>
-      binding.name === "css" &&
-      !!binding.value &&
-      typeof binding.value === "object" &&
-      binding.parent instanceof Element,
-    ssr(binding, generated) {
-      const element = binding.parent as Element;
+  /**
+   * The ssr hook allows for plugin to render the binding server-side. The hook
+   * is called during the capture phase, which renders the parent node first,
+   * then all decendants.
+   *
+   * @example <caption>Rendering the "text" binding simlified.</caption>
+   * ```
+   * ssr({ binding, generated, value }) {
+   *   const inner = utils.extractIntoTemplate(binding, generated);
+   *   generated.overwrite(...inner.offset, String(value));
+   * }
+   * ```
+   */
+  ssr?:
+    | ((
+        args: Self & {
+          /**
+           * The generated document. This is modified using a magic string,
+           * which allows for modifications to be mode to the new document
+           * using the original parsed nodes' location.
+           *
+           * @see https://github.com/Rich-Harris/magic-string
+           */
+          generated: MagicString;
 
-      for (const [key, value] of Object.entries(binding.value as object)) {
-        if (value) {
-          utils.addClass(generated, element, key);
-        } else {
-          utils.removeClass(generated, element, key);
-        }
-      }
-    },
-  },
-  {
-    filter: (binding) =>
-      binding.name === "style" &&
-      !!binding.value &&
-      binding.parent instanceof Element,
-    ssr(binding, generated) {
-      const element = binding.parent as Element;
+          /**
+           * Register a callback to be called during the bubble phase. This
+           * allows the ssr hook wait for decendants to be rendered.
+           */
+          bubble: (callback: () => void | PromiseLike<void>) => void;
+        },
+      ) => void | PromiseLike<void>)
+    | undefined;
 
-      for (const [key, value] of Object.entries(binding.value as object)) {
-        utils.setStyle(generated, element, key, value);
-      }
-    },
-  },
-  {
-    filter: (binding) =>
-      binding.name === "attr" &&
-      !!binding.value &&
-      binding.parent instanceof Element,
-    ssr(binding, generated) {
-      const element = binding.parent as Element;
+  /**
+   * The alter hook allows for plugins to modify the binding context used for
+   * the current binding.
+   */
+  alter?: (args: {
+    binding: Binding;
+    context: BindingContext;
+  }) => void | PromiseLike<void>;
 
-      for (const [key, value] of Object.entries(binding.value as object)) {
-        utils.setAttribute(generated, element, key, value);
-      }
-    },
-  },
-  createIfPlugin((binding) => binding.name === "if", true),
-  createIfPlugin((binding) => binding.name === "ifnot", false),
-];
+  /**
+   * The extend hook allows for plugins to define a custom function to create
+   * child binding contexts.
+   */
+  extend?:
+    | ((args: { parent: Self }) => BindingContext | PromiseLike<BindingContext>)
+    | undefined;
 
-function createIfPlugin(filter: Plugin["filter"], truthy: boolean): Plugin {
-  return {
-    filter,
-    ssr(binding, generated) {
-      const inner = utils.getInnerRange(binding.parent, generated.original);
-      const innerHtml = generated.original.slice(
-        inner.start.offset,
-        inner.end.offset,
-      );
-      const id = utils.randomId(innerHtml.replace(/\s+/g, " "));
-      const show = Boolean(truthy ? binding.value : !binding.value);
-      const q = binding.quote;
-
-      // Remove contents if not shown
-      if (!show) {
-        generated.remove(inner.start.offset, inner.end.offset);
-      }
-
-      // Append template above element
-      generated.appendLeft(
-        binding.parent.range.start.offset,
-        `<template id="${id}">${innerHtml}</template>`,
-      );
-
-      // Replace binding with "ssr-if"
-      generated.overwrite(
-        ...binding.range.offset,
-        `ssr-if: { template: ${q}${id}${q}, show: ${binding.expression} }`,
-      );
-    },
-  };
+  /**
+   * The propagate hook allows for plugins to controle whether the decendants
+   * should be rendered.
+   */
+  propagate?: (args: Self) => boolean;
 }
