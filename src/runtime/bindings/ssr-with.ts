@@ -1,11 +1,11 @@
 import * as ko from "knockout";
 
-export type SsrIfParams = {
+export type SsrWithParams = {
   template: string;
-  show: unknown;
+  value: unknown;
 };
 
-export const ssrIfBindingHandler: ko.BindingHandler<SsrIfParams> = {
+export const ssrWithBindingHandler: ko.BindingHandler<SsrWithParams> = {
   ...ko.bindingHandlers,
   init(
     element: HTMLElement,
@@ -15,22 +15,24 @@ export const ssrIfBindingHandler: ko.BindingHandler<SsrIfParams> = {
     bindingContext,
   ) {
     const { template: id } = valueAccessor();
+    
+    if (id) {
+      const ownerDocument = element.ownerDocument ?? document.documentElement;
+      const template = ownerDocument.getElementById(id);
 
-    const ownerDocument = element.ownerDocument ?? document.documentElement;
-    const template = ownerDocument.getElementById(id);
-
-    if (!template || !(template instanceof HTMLTemplateElement)) {
-      throw new Error(
-        `Cannot find server-side rendered template with id "${id}"`,
-      );
+      if (!template || !(template instanceof HTMLTemplateElement)) {
+        throw new Error(
+          `Cannot find server-side rendered template with id "${id}"`,
+        );
+      }
+  
+      element.replaceChildren(template.content.cloneNode(true));
+      template.remove();
     }
 
-    element.replaceChildren(template.content.cloneNode(true));
-    template.remove();
-
-    return ko.bindingHandlers.if.init(
+    return ko.bindingHandlers.with.init(
       element,
-      () => valueAccessor().show,
+      () => valueAccessor().value,
       allBindings,
       viewModel,
       bindingContext,
@@ -38,8 +40,8 @@ export const ssrIfBindingHandler: ko.BindingHandler<SsrIfParams> = {
   },
 };
 
-const bindingKey = "_ssr_if";
+const bindingKey = "_ssr_with";
 
-ko.bindingHandlers[bindingKey] = ssrIfBindingHandler;
+ko.bindingHandlers[bindingKey] = ssrWithBindingHandler;
 (ko.expressionRewriting.bindingRewriteValidators as any)[bindingKey] = false;
 ko.virtualElements.allowedBindings[bindingKey] = true;
