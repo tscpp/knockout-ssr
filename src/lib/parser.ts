@@ -164,8 +164,16 @@ export class Document extends Node {
   }
 }
 
-export function parse(document: string): Document {
-  const root = p5.parseFragment(document, { sourceCodeLocationInfo: true });
+export interface ParseOptions {
+  onError?: ((error: p5.ParserError) => void) | undefined;
+}
+
+export function parse(document: string, options?: ParseOptions): Document {
+  const root = p5.parseFragment(document, {
+    sourceCodeLocationInfo: true,
+    scriptingEnabled: false,
+    onParseError: options?.onError,
+  });
   const iter = root.childNodes[Symbol.iterator]();
   let children: Node[] = [];
   let result: IteratorResult<p5t.Node> | undefined;

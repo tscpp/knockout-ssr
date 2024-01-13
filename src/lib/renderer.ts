@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import {
   Element,
   ParentNode,
+  Range,
   VirtualElement,
   isParentNode,
   parse,
@@ -16,7 +17,15 @@ import builtins from "./_built-ins.js";
 import { evaluateBinding, evaluateInlineData } from "./eval.js";
 import { interopModule } from "./module.js";
 import { Binding, parseBindings } from "./binding.js";
-import { SSRError, SSRWarning } from "./diagnostic.js";
+import {
+  Diagnostic,
+  DiagnosticError,
+  DiagnosticWarning,
+  createDiagnostic,
+  isDiagnostic,
+  toMessage,
+} from "./diagnostic.js";
+import { formatP5Error, p5ToRange } from "./parse5-utils.js";
 
 export interface CommonOptions {
   /**
@@ -69,8 +78,8 @@ export interface RenderResult {
   document: string;
   sourceMap: string;
 
-  errors: SSRError[];
-  warnings: SSRWarning[];
+  errors: DiagnosticError[];
+  warnings: DiagnosticWarning[];
 }
 
 interface RenderBindingResult {
@@ -91,8 +100,8 @@ class Renderer {
   plugins: Plugin[];
   attributes: string[];
   filename: string | undefined;
-  errors: SSRError[] = [];
-  warnings: SSRWarning[] = [];
+  errors: DiagnosticError[] = [];
+  warnings: DiagnosticWarning[] = [];
   consumed = false;
   options: RenderOptions;
 
@@ -109,30 +118,89 @@ class Renderer {
     this.options = options ?? {};
   }
 
+  warning(message: string, range?: Range, cause?: unknown) {
+    return createDiagnostic({
+      type: "warning",
+      message,
+      range,
+      cause,
+      filename: this.filename,
+    });
+  }
+
+  error(message: string, range?: Range, cause?: unknown) {
+    return createDiagnostic({
+      type: "error",
+      message,
+      range,
+      cause,
+      filename: this.filename,
+    });
+  }
+
+  emit(diagnostic: Diagnostic) {
+    if (diagnostic.type === "error") {
+      this.errors.push(diagnostic);
+    } else {
+      this.warnings.push(diagnostic);
+    }
+  }
+
+  fatal(message: string, range?: Range, cause?: unknown): never {
+    this.emit(this.error(message, range, cause));
+    throw new Error("Unable to render document.");
+  }
+
+  catch(error: unknown, range?: Range) {
+    if (isDiagnostic(error)) {
+      error.range ??= range;
+      this.emit(error);
+    } else {
+      throw error;
+    }
+  }
+
+  async parse() {
+    try {
+      return parse(this.document.original, {
+        onError: (error) => {
+          this.emit(this.error(formatP5Error(error), p5ToRange(error)));
+        },
+      });
+    } catch (error) {
+      throw this.error("Failed to parse document.", undefined, error);
+    }
+  }
+
   async render(): Promise<RenderResult> {
     if (this.consumed) {
       throw new Error("Renderer has already been consumed.");
     }
     this.consumed = true;
 
-    const parsed = parse(this.document.original);
-    await this.scan(parsed);
+    try {
+      const parsed = await this.parse();
+      await this.scan(parsed);
 
-    const document = this.document.toString();
+      const document = this.document.toString();
 
-    const sourceMap = this.document
-      .generateMap({
-        source: this.filename,
-        includeContent: true,
-      })
-      .toString();
+      const sourceMap = this.document
+        .generateMap({
+          source: this.filename,
+          includeContent: true,
+        })
+        .toString();
 
-    return {
-      document,
-      sourceMap,
-      errors: this.errors,
-      warnings: this.warnings,
-    };
+      return {
+        document,
+        sourceMap,
+        errors: this.errors,
+        warnings: this.warnings,
+      };
+    } catch (error) {
+      this.catch(error);
+      throw new Error("Unable to render document.");
+    }
   }
 
   async scan(node: ParentNode) {
@@ -170,23 +238,39 @@ class Renderer {
 
   async loadSsrData(param: string) {
     if (param.startsWith("{")) {
-      return evaluateInlineData(param);
+      try {
+        return evaluateInlineData(param);
+      } catch (error) {
+        throw this.error(
+          `Invalid inline data: ${toMessage(error)}`,
+          undefined,
+          error,
+        );
+      }
     } else {
-      const module = await import(await this.resolve(param));
-      return interopModule(module);
+      const resolved = await this.resolve(param);
+      try {
+        return interopModule(await import(resolved));
+      } catch (error) {
+        throw this.error(toMessage(error), undefined, error);
+      }
     }
   }
 
   async renderRoot(node: VirtualElement) {
-    const data = await this.loadSsrData(node.param.trim());
-    const context = new BindingContext(data);
+    try {
+      const data = await this.loadSsrData(node.param.trim());
+      const context = new BindingContext(data);
 
-    // Remove virtual element start and end comments.
-    const inner = getInnerRange(node, this.document.original);
-    this.document.remove(node.range.start.offset, inner.start.offset);
-    this.document.remove(inner.end.offset, node.range.end.offset);
+      // Remove virtual element start and end comments.
+      const inner = getInnerRange(node, this.document.original);
+      this.document.remove(node.range.start.offset, inner.start.offset);
+      this.document.remove(inner.end.offset, node.range.end.offset);
 
-    await this.renderDecendants(node, context);
+      await this.renderDecendants(node, context);
+    } catch (error) {
+      this.catch(error, node.range);
+    }
   }
 
   async createChildContext(
@@ -217,23 +301,35 @@ class Renderer {
   }
 
   async renderElement(node: Element | VirtualElement, context: BindingContext) {
-    const bindings = parseBindings(
-      node,
-      this.document.original,
-      this.attributes,
-    );
+    try {
+      try {
+        var bindings = parseBindings(
+          node,
+          this.document.original,
+          this.attributes,
+        );
+      } catch (error) {
+        throw this.error(
+          `Failed to parse bindings: ${toMessage(error)}`,
+          node.range,
+          error,
+        );
+      }
 
-    const { propagate, bubble, extend } = await this.#renderBindings(
-      bindings,
-      context,
-    );
+      const { propagate, bubble, extend } = await this.#renderBindings(
+        bindings,
+        context,
+      );
 
-    await this.renderDecendants(
-      node,
-      propagate && (await this.createChildContext(context, extend)),
-    );
+      await this.renderDecendants(
+        node,
+        propagate && (await this.createChildContext(context, extend)),
+      );
 
-    await bubble?.();
+      await bubble?.();
+    } catch (error) {
+      this.catch(error, node.range);
+    }
   }
 
   async #renderBindings(

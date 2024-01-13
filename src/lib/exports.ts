@@ -5,7 +5,11 @@ export {
   type ChildContextOptions,
 } from "./binding-context.js";
 export { Binding } from "./binding.js";
-export { SSRError, SSRWarning } from "./diagnostic.js";
+export {
+  type Diagnostic,
+  type DiagnosticError,
+  type DiagnosticWarning,
+} from "./diagnostic.js";
 export { evaluate, transform } from "./eval.js";
 export * from "./parser.js";
 export { type Plugin } from "./plugin.js";

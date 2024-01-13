@@ -1,29 +1,47 @@
 import { Range } from "./parser.js";
 
-export class SSRWarning extends Error {
-  constructor(
-    message: string,
-    public readonly range: Range,
-    public readonly filename: string,
-  ) {
-    super(message);
-  }
+const isDiagnosticSymbol = Symbol("is diagnostic");
 
-  override toString() {
-    return `${this.filename}:${this.range.start.line}:${this.range.start.column}: ${this.message}`;
-  }
+export type DiagnosticType = "error" | "warning";
+
+interface _Diagnostic {
+  [isDiagnosticSymbol]: true;
+  type: DiagnosticType;
+  message: string;
+  cause?: unknown;
+  range?: Range;
+  filename?: string;
 }
 
-export class SSRError extends Error {
-  constructor(
-    message: string,
-    public readonly range: Range,
-    public readonly filename: string,
-  ) {
-    super(message);
-  }
+export type Diagnostic = DiagnosticError | DiagnosticWarning;
 
-  override toString() {
-    return `${this.filename}:${this.range.start.line}:${this.range.start.column}: ${this.message}`;
-  }
+export interface DiagnosticError extends _Diagnostic {
+  type: "error";
+}
+
+export interface DiagnosticWarning extends _Diagnostic {
+  type: "warning";
+}
+
+export function createDiagnostic<T extends DiagnosticType>(init: {
+  type: T;
+  message: string;
+  cause?: unknown;
+  range?: Range;
+  filename?: string;
+}) {
+  return {
+    [isDiagnosticSymbol]: true,
+    ...init,
+  } as Diagnostic & { type: T };
+}
+
+export function isDiagnostic(value: unknown): value is Diagnostic {
+  return (
+    typeof value === "object" && value !== null && isDiagnosticSymbol in value
+  );
+}
+
+export function toMessage(value: unknown): string {
+  return value instanceof Error ? value.message : String(value);
 }
