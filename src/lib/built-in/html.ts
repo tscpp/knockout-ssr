@@ -5,19 +5,12 @@ const html: Plugin = {
   filter: (binding) => binding.name === "html",
   ssr({ binding, generated, value }) {
     const asHtml = String(value);
-    const innerRange = utils.getInnerRange(
-      binding.parent,
-      generated.original,
-    );
+    const innerRange = utils.getInnerRange(binding.parent, generated.original);
 
     if (innerRange.isEmpty) {
       generated.appendLeft(innerRange.start.offset, asHtml);
     } else {
-      generated.update(
-        innerRange.start.offset,
-        innerRange.end.offset,
-        asHtml,
-      );
+      generated.update(innerRange.start.offset, innerRange.end.offset, asHtml);
     }
   },
 };

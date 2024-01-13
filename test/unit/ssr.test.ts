@@ -185,7 +185,6 @@ test("renders checked binding", async () => {
   assert(document.includes('checked=""'));
 });
 
-
 test("renders disabled binding", async () => {
   const { document } = await render(`
     <!-- ko ssr: { value: true } -->

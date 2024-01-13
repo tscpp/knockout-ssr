@@ -15,7 +15,7 @@ export const ssrWithBindingHandler: ko.BindingHandler<SsrWithParams> = {
     bindingContext,
   ) {
     const { template: id } = valueAccessor();
-    
+
     if (id) {
       const ownerDocument = element.ownerDocument ?? document.documentElement;
       const template = ownerDocument.getElementById(id);
@@ -25,7 +25,7 @@ export const ssrWithBindingHandler: ko.BindingHandler<SsrWithParams> = {
           `Cannot find server-side rendered template with id "${id}"`,
         );
       }
-  
+
       element.replaceChildren(template.content.cloneNode(true));
       template.remove();
     }

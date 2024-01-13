@@ -44,7 +44,6 @@ test("if hidden hydration", async ({ page }) => {
   expect(html).toContain("></div>");
 });
 
-
 test("with hidden hydration", async ({ page }) => {
   await page.goto(`${url}/with-hidden`);
   const html = await page.innerHTML("body");
