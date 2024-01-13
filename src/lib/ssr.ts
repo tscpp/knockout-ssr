@@ -453,12 +453,16 @@ function transform(expression: string, quote = '"'): string {
   // and if not, it uses the identifier from the global scope.
   acornWalk.simple(parsed, {
     Identifier(node: acorn.Identifier) {
-      const key = quoteJsString(node.name, quote);
+      const q = (s: string) => quoteJsString(s, quote);
 
       magic.overwrite(
         node.start!,
         node.end!,
-        `(${key} in $context ? $context[${key}] : $data !== null && typeof $data === "object" && ${key} in $data ? $data[${key}] : ${node.name})`,
+        `(${q(node.name)} in $context ? $context[${q(
+          node.name,
+        )}] : $data !== null && typeof $data === ${q("object")} && ${q(
+          node.name,
+        )} in $data ? $data[${q(node.name)}] : ${node.name})`,
       );
     },
   });
