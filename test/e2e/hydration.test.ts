@@ -37,3 +37,15 @@ test("if visible hydration", async ({ page }) => {
   const html = await page.innerHTML("body");
   expect(html).toContain(">Rendered</div>");
 });
+
+test("if hidden hydration", async ({ page }) => {
+  await page.goto(`${url}/if-hidden`);
+  const html = await page.innerHTML("body");
+  expect(html).toContain("></div>");
+});
+
+test("with hidden hydration", async ({ page }) => {
+  await page.goto(`${url}/with-hidden`);
+  const html = await page.innerHTML("body");
+  expect(html).toContain("></div>");
+});

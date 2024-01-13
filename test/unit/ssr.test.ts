@@ -90,9 +90,9 @@ test("renders using custom plugin", async () => {
   };
   const i18nPlugin: Plugin = {
     filter: (binding) => binding.name === "i18n",
-    ssr: (binding, generated, context) => {
+    ssr: ({ binding, generated, context, value }) => {
       const lang = (context.$data as any).language;
-      const key = binding.value;
+      const key = value;
       const asHtml = utils.escapeHtml(translations[lang][key]);
 
       const inner = utils.getInnerRange(binding.parent, generated.original);
@@ -132,4 +132,64 @@ test("renders attr binding on element", async () => {
     <!-- /ko -->
   `);
   assert(/title=["'][^]*Hello/.test(document));
+});
+
+test("renders with binding", async () => {
+  const { document } = await render(`
+    <!-- ko ssr: { foo: { bar: 'baz' } } -->
+      <!-- ko with: foo -->
+        <div data-bind="text: bar"></div>
+      <!-- /ko -->
+    <!-- /ko -->
+  `);
+  assert(document.includes(">baz<"));
+});
+
+test("renders using binding", async () => {
+  const { document } = await render(`
+    <!-- ko ssr: { foo: { bar: 'baz' } } -->
+      <div data-bind="using: foo, as: 'hi'">
+        <div data-bind="text: hi.bar"></div>
+      </div>
+    <!-- /ko -->
+  `);
+  assert(document.includes(">baz<"));
+});
+
+test("renders let binding", async () => {
+  const { document } = await render(`
+    <!-- ko ssr: { } -->
+      <!-- ko let: { foo: 'bar' } -->
+      <div data-bind="text: foo"></div>
+      <!-- /ko -->
+    <!-- /ko -->
+  `);
+  assert(document.includes(">bar<"));
+});
+
+test("renders value binding", async () => {
+  const { document } = await render(`
+    <!-- ko ssr: { value: 'foo' } -->
+      <input data-bind="value: value">
+    <!-- /ko -->
+  `);
+  assert(/value=["']foo/.test(document));
+});
+
+test("renders checked binding", async () => {
+  const { document } = await render(`
+    <!-- ko ssr: { value: true } -->
+      <input data-bind="checked: value">
+    <!-- /ko -->
+  `);
+  assert(document.includes('checked=""'));
+});
+
+test("renders disabled binding", async () => {
+  const { document } = await render(`
+    <!-- ko ssr: { value: true } -->
+      <input data-bind="disabled: value">
+    <!-- /ko -->
+  `);
+  assert(document.includes('disabled=""'));
 });

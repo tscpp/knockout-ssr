@@ -10,6 +10,7 @@ import {
   p5ToRange,
 } from "./parser.js";
 import { createHash } from "node:crypto";
+import { Binding } from "./ssr.js";
 
 export function getInnerRange(
   node: Element | VirtualElement,
@@ -85,7 +86,9 @@ export function setStyle(
   const attr = element.attributes.find((attr) => attr.name === "style");
 
   if (attr) {
-    const styles = inlineStyleParser(attr.value);
+    const styles = (
+      inlineStyleParser as unknown as typeof inlineStyleParser.default
+    )(attr.value);
 
     for (const style of styles) {
       if (style.type === "declaration" && style.property === property) {
@@ -235,4 +238,23 @@ export function escapeJsString(
 
 export function quoteJsString(string: string, quote: string) {
   return `${quote}${escapeJsString(string, quote)}${quote}`;
+}
+
+export function extractIntoTemplate(binding: Binding, generated: MagicString) {
+  const inner = getInnerRange(binding.parent, generated.original);
+  const innerHtml = generated.slice(inner.start.offset, inner.end.offset);
+
+  // Generate hash
+  const id = randomId(innerHtml.replace(/\s+/g, " "));
+
+  // Remove contents
+  generated.remove(...inner.offset);
+
+  // Append template above element
+  generated.appendLeft(
+    binding.parent.range.start.offset,
+    `<template id="${id}">${innerHtml}</template>`,
+  );
+
+  return id;
 }

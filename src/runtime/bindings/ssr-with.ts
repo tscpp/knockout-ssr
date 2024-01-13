@@ -1,11 +1,11 @@
 import * as ko from "knockout";
 
-export type SsrIfParams = {
+export type SsrWithParams = {
   template: string;
   value: unknown;
 };
 
-export const ssrIfBindingHandler: ko.BindingHandler<SsrIfParams> = {
+export const ssrWithBindingHandler: ko.BindingHandler<SsrWithParams> = {
   ...ko.bindingHandlers,
   init(
     element: HTMLElement,
@@ -30,7 +30,7 @@ export const ssrIfBindingHandler: ko.BindingHandler<SsrIfParams> = {
       template.remove();
     }
 
-    return ko.bindingHandlers.if.init(
+    return ko.bindingHandlers.with.init(
       element,
       () => valueAccessor().value,
       allBindings,
@@ -40,8 +40,8 @@ export const ssrIfBindingHandler: ko.BindingHandler<SsrIfParams> = {
   },
 };
 
-const bindingKey = "_ssr_if";
+const bindingKey = "_ssr_with";
 
-ko.bindingHandlers[bindingKey] = ssrIfBindingHandler;
+ko.bindingHandlers[bindingKey] = ssrWithBindingHandler;
 (ko.expressionRewriting.bindingRewriteValidators as any)[bindingKey] = false;
 ko.virtualElements.allowedBindings[bindingKey] = true;
