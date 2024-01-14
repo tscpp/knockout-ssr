@@ -139,4 +139,16 @@ export interface Plugin {
    * should be rendered.
    */
   propagate?: ((args: Self) => boolean | "custom") | boolean | "custom";
+
+  /**
+   * Define how to import modules.
+   * @param id The absolute file url to the module.
+   * @returns The module exports. May be a promise.
+   */
+  load?: (id: string) => unknown | PromiseLike<unknown>;
+
+  /**
+   * Define how to interop data from modules.
+   */
+  interop?: (exports: unknown) => unknown;
 }
