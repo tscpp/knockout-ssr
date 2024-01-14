@@ -6,10 +6,10 @@ const class_: Plugin = {
   filter: (binding) =>
     binding.name === "class" && binding.parent instanceof Element,
   ssr({ binding, generated, value }) {
-    if (!value) return;
+    if (!value()) return;
 
     const element = binding.parent as Element;
-    utils.addClass(generated, element, String(value));
+    utils.addClass(generated, element, String(value()));
   },
 };
 

@@ -9,7 +9,7 @@ const with_: Plugin = {
     const q = binding.quote;
 
     bubble(() => {
-      if (value) {
+      if (value()) {
         template = utils.extractIntoTemplate(binding, generated);
       }
 

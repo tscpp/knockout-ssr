@@ -10,7 +10,7 @@ const value: Plugin = {
       generated,
       binding.parent as Element,
       "value",
-      value === undefined || value === null ? null : String(value),
+      value() === undefined || value() === null ? null : String(value()),
     );
   },
 };

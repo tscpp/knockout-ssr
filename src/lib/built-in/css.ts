@@ -6,11 +6,11 @@ const css: Plugin = {
   filter: (binding) =>
     binding.name === "css" && binding.parent instanceof Element,
   ssr({ binding, generated, value }) {
-    if (!value || typeof value !== "object") return;
+    if (!value() || typeof value() !== "object") return;
 
     const element = binding.parent as Element;
 
-    for (const [key, value2] of Object.entries(value as object)) {
+    for (const [key, value2] of Object.entries(value() as object)) {
       if (value2) {
         utils.addClass(generated, element, key);
       } else {

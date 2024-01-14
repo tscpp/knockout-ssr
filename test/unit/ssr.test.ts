@@ -84,7 +84,7 @@ describe("server-side rendering", () => {
       filter: (binding) => binding.name === "i18n",
       ssr: ({ binding, generated, context, value }) => {
         const lang = (context.$data as any).language;
-        const key = value;
+        const key = value();
         const asHtml = utils.escapeHtml(translations[lang][key]);
 
         const inner = utils.getInnerRange(binding.parent, generated.original);

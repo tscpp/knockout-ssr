@@ -10,7 +10,7 @@ export const visible: Plugin = {
       generated,
       binding.parent as Element,
       "display",
-      value ? null : "none",
+      value() ? null : "none",
     );
   },
 };
@@ -23,7 +23,7 @@ export const hidden: Plugin = {
       generated,
       binding.parent as Element,
       "display",
-      value ? "none" : null,
+      value() ? "none" : null,
     );
   },
 };

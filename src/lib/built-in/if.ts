@@ -13,11 +13,11 @@ export const ifnot: Plugin = createIfPlugin(
 function createIfPlugin(filter: Plugin["filter"], test: boolean): Plugin {
   return {
     filter,
-    propagate: ({ value }) => value == test,
+    propagate: ({ value }) => value() == test,
     ssr({ binding, generated, value, bubble }) {
       bubble(() => {
         const tmpl =
-          value == test
+          value() == test
             ? undefined
             : utils.extractIntoTemplate(binding, generated);
 

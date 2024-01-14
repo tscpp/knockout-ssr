@@ -4,7 +4,7 @@ import * as utils from "../utils.js";
 const html: Plugin = {
   filter: (binding) => binding.name === "html",
   ssr({ binding, generated, value }) {
-    const asHtml = String(value);
+    const asHtml = String(value());
     const innerRange = utils.getInnerRange(binding.parent, generated.original);
 
     if (innerRange.isEmpty) {

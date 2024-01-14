@@ -10,7 +10,7 @@ const checked: Plugin = {
       generated,
       binding.parent as Element,
       "checked",
-      value ? "" : null,
+      value() ? "" : null,
     );
   },
 };

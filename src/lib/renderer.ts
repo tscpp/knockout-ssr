@@ -398,25 +398,31 @@ class Renderer {
       }
     }
 
-    const rawValues: unknown[] = [];
+    const rawValues: (() => unknown)[] = [];
     for (const binding of bindings) {
-      try {
-        var rawValue = evaluateBinding(binding.expression, {
-          $context: context,
-          ...context,
-        });
-      } catch (cause) {
-        throw this.error({
-          code: "binding-evaluation-error",
-          message: toMessage(cause),
-          range: binding.range,
-          cause,
-        });
-      }
-      rawValues.push(rawValue);
+      let rawValue: unknown;
+      let dirty = true;
+      rawValues.push(() => {
+        if (!dirty) return rawValue;
+        try {
+          rawValue = evaluateBinding(binding.expression, {
+            $context: context,
+            ...context,
+          });
+          dirty = false;
+        } catch (cause) {
+          throw this.error({
+            code: "binding-evaluation-error",
+            message: toMessage(cause),
+            range: binding.range,
+            cause,
+          });
+        }
+        return rawValue;
+      });
     }
 
-    const values = rawValues.map((rawValue) => ko.unwrap(rawValue));
+    const values = rawValues.map((rawValue) => () => ko.unwrap(rawValue()));
 
     let bubbles: (() => void | PromiseLike<void>)[] = [];
 
@@ -449,11 +455,13 @@ class Renderer {
           },
         });
       } catch (cause) {
-        throw this.error({
-          code: "render-error",
-          message: toMessage(cause),
-          range: bindings[i]!.range,
-          cause,
+        throw this.catch(cause, bindings[i]!.range, () => {
+          throw this.error({
+            code: "render-error",
+            message: toMessage(cause),
+            range: bindings[i]!.range,
+            cause,
+          });
         });
       }
     }
@@ -469,11 +477,13 @@ class Renderer {
       try {
         var extender = () => plugin.extend!({ parent: getSelf(i) });
       } catch (cause) {
-        throw this.error({
-          code: "extend-error",
-          message: toMessage(cause),
-          range: bindings[i]!.range,
-          cause,
+        throw this.catch(cause, bindings[i]!.range, () => {
+          throw this.error({
+            code: "extend-error",
+            message: toMessage(cause),
+            range: bindings[i]!.range,
+            cause,
+          });
         });
       }
       extenders.push(extender);

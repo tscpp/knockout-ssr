@@ -6,8 +6,8 @@ const using: Plugin = {
     const as = parent.siblings.find((sibling) => sibling.binding.name === "as");
 
     return parent.context.createChildContext(
-      parent.rawValue,
-      as ? String(as.value) : undefined,
+      parent.rawValue(),
+      as ? String(as.value()) : undefined,
     );
   },
 };
