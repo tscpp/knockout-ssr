@@ -1,6 +1,6 @@
 {
   "name": "knockout-ssr",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Simple server-side rendering for Knockout.js",
   "keywords": [
     "knockout",
@@ -40,7 +40,7 @@
   "scripts": {
     "build": "node ./scripts/build.js",
     "format": "prettier --write .",
-    "release": "npm run build && npm run test && cd dist && np --no-tests",
+    "release": "node scripts/release.js",
     "test": "node test/run-all.js",
     "test:unit": "node test/run-unit.js",
     "test:e2e": "node test/run-e2e.js",
