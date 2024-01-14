@@ -1,6 +1,6 @@
 import { FilterPattern, createFilter, dataToEsm } from "@rollup/pluginutils";
 import type { Plugin } from "rollup";
-import { RenderOptions, render } from "../lib/ssr.js";
+import { RenderOptions, render } from "../lib/exports.js";
 
 export interface KnockoutSSRPluginOptions extends RenderOptions {
   /**

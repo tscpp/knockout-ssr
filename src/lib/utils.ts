@@ -1,16 +1,9 @@
 import inlineStyleParser from "inline-style-parser";
 import MagicString from "magic-string";
-import * as p5 from "parse5";
-import type * as p5t from "../../node_modules/parse5/dist/tree-adapters/default.js";
-import {
-  Element,
-  Position,
-  Range,
-  VirtualElement,
-  p5ToRange,
-} from "./parser.js";
+import { Element, Position, Range, VirtualElement } from "./parser.js";
 import { createHash } from "node:crypto";
-import { Binding } from "./ssr.js";
+import { Binding } from "./binding.js";
+import { p5, p5ToRange, p5t } from "./parse5-utils.js";
 
 export function getInnerRange(
   node: Element | VirtualElement,
@@ -215,7 +208,7 @@ export function randomId(data = Math.random().toString()) {
   return createHash("sha256").update(data).digest("base64url").slice(0, 8);
 }
 
-export function escapeJsString(
+export function escapeJs(
   string: string,
   quote: string | null | undefined = null,
 ) {
@@ -234,10 +227,6 @@ export function escapeJsString(
   }
 
   return string;
-}
-
-export function quoteJsString(string: string, quote: string) {
-  return `${quote}${escapeJsString(string, quote)}${quote}`;
 }
 
 export function extractIntoTemplate(binding: Binding, generated: MagicString) {

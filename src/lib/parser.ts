@@ -1,5 +1,4 @@
-import * as p5 from "parse5";
-import type * as p5t from "../../node_modules/parse5/dist/tree-adapters/default.js";
+import { p5, p5ToRange, p5t } from "./parse5-utils.js";
 
 const virtualElementStart = /\s*ko\s+([^\s]+)\s*:([^]*)/;
 const virtualElementEnd = /\s*\/ko\s([^]*)/;
@@ -7,13 +6,13 @@ const virtualElementEnd = /\s*\/ko\s([^]*)/;
 export class Position {
   static zero = new Position(0, 0, 0);
 
-  static fromOffset(offset: number, document: string): Position {
+  static fromOffset(offset: number, source: string): Position {
     let line = 0,
       column = 0,
       current = 0;
 
     while (current < offset) {
-      if (document[current] === "\n") {
+      if (source[current] === "\n") {
         line++;
         column = 0;
       } else {
@@ -29,12 +28,12 @@ export class Position {
   static fromLineAndColumn(
     line: number,
     column: number,
-    document: string,
+    source: string,
   ): Position {
     let offset = 0;
 
     for (let i = 0; i < line; i++) {
-      offset = document.indexOf("\n", offset) + 1;
+      offset = source.indexOf("\n", offset) + 1;
     }
 
     offset += column;
@@ -56,17 +55,6 @@ export class Position {
     this.column += to.column;
     this.offset += to.offset;
   }
-}
-
-export function p5ToRange(location: p5.Token.Location): Range {
-  return new Range(
-    new Position(
-      location.startLine - 1,
-      location.startCol - 1,
-      location.startOffset,
-    ),
-    new Position(location.endLine - 1, location.endCol - 1, location.endOffset),
-  );
 }
 
 export class Range {
@@ -176,8 +164,16 @@ export class Document extends Node {
   }
 }
 
-export function parse(document: string): Document {
-  const root = p5.parseFragment(document, { sourceCodeLocationInfo: true });
+export interface ParseOptions {
+  onError?: ((error: p5.ParserError) => void) | undefined;
+}
+
+export function parse(document: string, options?: ParseOptions): Document {
+  const root = p5.parseFragment(document, {
+    sourceCodeLocationInfo: true,
+    scriptingEnabled: false,
+    onParseError: options?.onError,
+  });
   const iter = root.childNodes[Symbol.iterator]();
   let children: Node[] = [];
   let result: IteratorResult<p5t.Node> | undefined;
@@ -283,9 +279,9 @@ function parseNode(node: p5t.Node, iter: Iterator<p5t.Node>): Node {
   }
 }
 
-export function isChildNode(
-  node: Node,
-): node is Element | VirtualElement | Text | Comment {
+export type ChildNode = Element | VirtualElement | Text | Comment;
+
+export function isChildNode(node: Node): node is ChildNode {
   return (
     node instanceof Element ||
     node instanceof VirtualElement ||
@@ -294,9 +290,9 @@ export function isChildNode(
   );
 }
 
-export function isParentNode(
-  node: Node,
-): node is Element | VirtualElement | Document {
+export type ParentNode = Element | VirtualElement | Document;
+
+export function isParentNode(node: Node): node is ParentNode {
   return (
     node instanceof Element ||
     node instanceof VirtualElement ||

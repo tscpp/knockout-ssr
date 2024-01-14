@@ -5,7 +5,8 @@
     "module": "ES2015",
     "lib": ["ES2015", "DOM"],
     "moduleResolution": "Bundler",
-    "types": []
+    "types": [],
+    "outDir": "build"
   },
   "include": ["src/runtime"]
 }
