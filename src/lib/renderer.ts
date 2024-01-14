@@ -83,7 +83,7 @@ export interface RenderResult {
 }
 
 interface RenderBindingResult {
-  propagate: boolean;
+  propagate: boolean | "custom";
   bubble?: (() => Promise<void>) | undefined;
   extend?: (() => Promise<BindingContext>) | undefined;
 }
@@ -280,15 +280,15 @@ class Renderer {
     }
   }
 
-  async renderRoot(node: VirtualElement) {
+  async renderRoot(node: VirtualElement, document = this.document) {
     try {
       const data = await this.loadSsrData(node.param.trim());
       const context = new BindingContext(data);
 
       // Remove virtual element start and end comments.
-      const inner = getInnerRange(node, this.document.original);
-      this.document.remove(node.range.start.offset, inner.start.offset);
-      this.document.remove(inner.end.offset, node.range.end.offset);
+      const inner = getInnerRange(node, document.original);
+      document.remove(node.range.start.offset, inner.start.offset);
+      document.remove(inner.end.offset, node.range.end.offset);
 
       await this.renderDecendants(node, context);
     } catch (error) {
@@ -303,21 +303,29 @@ class Renderer {
     return extend ? extend() : context.createChildContext(context.$rawData);
   }
 
-  async renderDecendants(node: ParentNode, context: BindingContext) {
+  async renderDecendants(
+    node: ParentNode,
+    context: BindingContext,
+    document = this.document,
+  ) {
     for (const child of node.children) {
       if (child instanceof VirtualElement && child.binding === "ssr") {
-        await this.renderRoot(child);
+        await this.renderRoot(child, document);
         continue;
       }
 
       if (child instanceof VirtualElement || child instanceof Element) {
-        await this.renderElement(child, context);
+        await this.renderElement(child, context, document);
         continue;
       }
     }
   }
 
-  async renderElement(node: Element | VirtualElement, context: BindingContext) {
+  async renderElement(
+    node: Element | VirtualElement,
+    context: BindingContext,
+    document = this.document,
+  ) {
     try {
       try {
         var bindings = parseBindings(
@@ -349,11 +357,13 @@ class Renderer {
       }
 
       const { propagate, bubble, extend } = await this.#renderBindings(
+        node,
         bindings,
         context,
+        document,
       );
 
-      if (propagate) {
+      if (propagate === true) {
         const childContext = await this.createChildContext(context, extend);
         await this.renderDecendants(node, childContext);
       }
@@ -372,8 +382,10 @@ class Renderer {
   }
 
   async #renderBindings(
+    node: Element | VirtualElement,
     bindings: readonly Binding[],
     context: BindingContext,
+    document = this.document,
   ): Promise<RenderBindingResult> {
     const plugins = bindings.map((binding) =>
       this.plugins.find((plugin) => plugin.filter(binding)),
@@ -442,6 +454,21 @@ class Renderer {
       };
     };
 
+    const propagate = plugins
+      .map((plugin, i) => {
+        if (plugin?.propagate === undefined) return true;
+
+        if (typeof plugin.propagate === "function") {
+          return plugin.propagate(getSelf(i));
+        } else {
+          return plugin.propagate;
+        }
+      })
+      .reduce(
+        (a, b) => (a === "custom" || b === "custom" ? "custom" : a && b),
+        true,
+      );
+
     for (let i = 0; i < bindings.length; ++i) {
       const self = getSelf(i);
       const plugin = plugins[i];
@@ -449,9 +476,16 @@ class Renderer {
       try {
         await plugin?.ssr?.({
           ...self,
-          generated: this.document,
+          generated: document,
           bubble: (callback) => {
             bubbles.push(callback);
+          },
+          propagate,
+          renderFragment: async (childContext) => {
+            const clone = document.clone();
+            this.renderDecendants(node, childContext, clone);
+            const inner = getInnerRange(node, clone.original);
+            return clone.slice(...inner.offset);
           },
         });
       } catch (cause) {
@@ -465,10 +499,6 @@ class Renderer {
         });
       }
     }
-
-    const propagate = !plugins.some(
-      (plugin, i) => plugin?.propagate?.(getSelf(i)) === false,
-    );
 
     const extenders: (() => BindingContext | PromiseLike<BindingContext>)[] =
       [];

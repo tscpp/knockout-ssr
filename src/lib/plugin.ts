@@ -103,6 +103,16 @@ export interface Plugin {
            * allows the ssr hook wait for decendants to be rendered.
            */
           bubble: (callback: () => void | PromiseLike<void>) => void;
+
+          /**
+           * Whether the decendants should be rendered.
+           */
+          propagate: boolean | "custom";
+
+          /**
+           * Allows for rendering of decendants.
+           */
+          renderFragment: (childContext: BindingContext) => Promise<string>;
         },
       ) => void | PromiseLike<void>)
     | undefined;
@@ -128,5 +138,5 @@ export interface Plugin {
    * The propagate hook allows for plugins to controle whether the decendants
    * should be rendered.
    */
-  propagate?: (args: Self) => boolean;
+  propagate?: ((args: Self) => boolean | "custom") | boolean | "custom";
 }
