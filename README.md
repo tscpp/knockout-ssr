@@ -166,10 +166,9 @@ const i18n: Plugin = {
   filter: (binding) => binding.name === "i18n",
 
   // This method is called when server-side rendering.
-  ssr: (binding, generated) => {
-    // `binding.value` contains the evaluated value of the binding (the actual
-    // value, not the string).
-    const translated = i18next.t(binding.value);
+  ssr: ({ binding, generated, value }) => {
+    // `value()` is the evaluation of the binding expression.
+    const translated = i18next.t(value());
 
     // Get the inner range (children) of the element of the binding.
     const inner = utils.getInnerRange(binding.parent, generated.original);

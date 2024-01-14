@@ -6,11 +6,11 @@ const attr: Plugin = {
   filter: (binding) =>
     binding.name === "attr" && binding.parent instanceof Element,
   ssr({ binding, generated, value }) {
-    if (!value) return;
+    if (!value()) return;
 
     const element = binding.parent as Element;
 
-    for (const [key, value2] of Object.entries(value as object)) {
+    for (const [key, value2] of Object.entries(value() as object)) {
       utils.setAttribute(generated, element, key, value2);
     }
   },

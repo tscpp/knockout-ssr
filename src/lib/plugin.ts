@@ -35,7 +35,7 @@ export interface Sibling {
    * value === ko.unwrap(rawValue)
    * ```
    */
-  value: unknown;
+  value(): unknown;
 
   /**
    * The "raw" value evaluated from the binding expression. This may be a
@@ -46,7 +46,7 @@ export interface Sibling {
    * ko.unwrap(rawValue) === value
    * ```
    */
-  rawValue: unknown;
+  rawValue(): unknown;
 }
 
 export interface Self extends Sibling {

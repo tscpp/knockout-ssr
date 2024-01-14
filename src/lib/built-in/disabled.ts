@@ -14,7 +14,7 @@ function createEnablePlugin(name: string, thruthy: boolean): Plugin {
         generated,
         binding.parent as Element,
         "disabled",
-        value == thruthy ? null : "",
+        value() == thruthy ? null : "",
       );
     },
   };

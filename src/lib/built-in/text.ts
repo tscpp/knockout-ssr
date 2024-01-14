@@ -4,7 +4,7 @@ import * as utils from "../utils.js";
 const text: Plugin = {
   filter: (binding) => binding.name === "text",
   ssr({ binding, generated, value }) {
-    const asHtml = utils.escapeHtml(String(value));
+    const asHtml = utils.escapeHtml(String(value()));
     const innerRange = utils.getInnerRange(binding.parent, generated.original);
 
     if (innerRange.isEmpty) {
