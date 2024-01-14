@@ -376,12 +376,23 @@ class Renderer {
       });
     }
 
-    const rawValues = bindings.map((binding) =>
-      evaluateBinding(binding.expression, {
-        $context: context,
-        ...context,
-      }),
-    );
+    const rawValues: unknown[] = [];
+    for (const binding of bindings) {
+      try {
+        var rawValue = evaluateBinding(binding.expression, {
+          $context: context,
+          ...context,
+        });
+      } catch (cause) {
+        throw this.error({
+          code: "binding-evaluation-error",
+          message: toMessage(cause),
+          range: binding.range,
+          cause,
+        });
+      }
+      rawValues.push(rawValue);
+    }
 
     const values = rawValues.map((rawValue) => ko.unwrap(rawValue));
 
