@@ -321,10 +321,10 @@ class Renderer {
         context,
       );
 
-      await this.renderDecendants(
-        node,
-        propagate && (await this.createChildContext(context, extend)),
-      );
+      if (propagate) {
+        const childContext = await this.createChildContext(context, extend);
+        await this.renderDecendants(node, childContext);
+      }
 
       await bubble?.();
     } catch (error) {
