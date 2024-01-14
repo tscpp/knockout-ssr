@@ -15,7 +15,6 @@ import ko from "knockout";
 import { BindingContext } from "./binding-context.js";
 import builtins from "./_built-ins.js";
 import { evaluateBinding, evaluateInlineData } from "./eval.js";
-import { interopModule } from "./module.js";
 import { Binding, BindingParseError, parseBindings } from "./binding.js";
 import {
   Diagnostic,
@@ -255,6 +254,74 @@ class Renderer {
     }
   }
 
+  async load(id: string): Promise<unknown> {
+    const providers = this.plugins.filter((plugin) => plugin.load);
+
+    if (providers.length > 1) {
+      throw new Error("Multiple plugins are providing load hook.");
+    }
+
+    if (providers.length === 1) {
+      const load = providers[0]!.load!;
+      try {
+        return load(id);
+      } catch (cause) {
+        throw this.error({
+          code: "cannot-load-module",
+          message: toMessage(cause),
+          cause,
+        });
+      }
+    } else {
+      try {
+        return await import(id);
+      } catch (cause) {
+        throw this.error({
+          code: "cannot-load-module",
+          message: toMessage(cause),
+          cause,
+        });
+      }
+    }
+  }
+
+  interop(exports: unknown): unknown {
+    const providers = this.plugins.filter((plugin) => plugin.interop);
+
+    if (providers.length > 1) {
+      throw new Error("Multiple plugins are providing interop hook.");
+    }
+
+    if (providers.length === 1) {
+      const interop = providers[0]!.interop!;
+      try {
+        return interop(exports);
+      } catch (cause) {
+        throw this.error({
+          code: "interop-error",
+          message: toMessage(cause),
+          cause,
+        });
+      }
+    } else {
+      if (
+        typeof exports === "object" &&
+        exports !== null &&
+        "default" in exports
+      ) {
+        if (typeof exports.default === "function") {
+          return exports.default();
+        } else {
+          return exports.default;
+        }
+      } else if (typeof exports === "function") {
+        return exports();
+      } else {
+        return exports;
+      }
+    }
+  }
+
   async loadSsrData(param: string) {
     if (param.startsWith("{")) {
       try {
@@ -269,7 +336,7 @@ class Renderer {
     } else {
       const resolved = await this.resolve(param);
       try {
-        return interopModule(await import(resolved));
+        return this.interop(await this.load(resolved));
       } catch (cause) {
         throw this.error({
           code: "cannot-find-module",
