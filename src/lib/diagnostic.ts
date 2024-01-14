@@ -7,6 +7,7 @@ export type DiagnosticType = "error" | "warning";
 interface _Diagnostic {
   [isDiagnosticSymbol]: true;
   type: DiagnosticType;
+  code?: string;
   message: string;
   cause?: unknown;
   range?: Range;
@@ -25,6 +26,7 @@ export interface DiagnosticWarning extends _Diagnostic {
 
 export function createDiagnostic<T extends DiagnosticType>(init: {
   type: T;
+  code?: string;
   message: string;
   cause?: unknown;
   range?: Range;

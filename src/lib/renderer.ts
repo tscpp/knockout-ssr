@@ -16,7 +16,7 @@ import { BindingContext } from "./binding-context.js";
 import builtins from "./_built-ins.js";
 import { evaluateBinding, evaluateInlineData } from "./eval.js";
 import { interopModule } from "./module.js";
-import { Binding, parseBindings } from "./binding.js";
+import { Binding, BindingParseError, parseBindings } from "./binding.js";
 import {
   Diagnostic,
   DiagnosticError,
@@ -95,6 +95,13 @@ export function render(
   return new Renderer(document, options).render();
 }
 
+type DiagnosticInit = {
+  message: string;
+  range?: Range;
+  code?: string;
+  cause?: unknown;
+};
+
 class Renderer {
   document: MagicString;
   plugins: Plugin[];
@@ -118,23 +125,19 @@ class Renderer {
     this.options = options ?? {};
   }
 
-  warning(message: string, range?: Range, cause?: unknown) {
+  warning(init: DiagnosticInit) {
     return createDiagnostic({
       type: "warning",
-      message,
-      range,
-      cause,
       filename: this.filename,
+      ...init,
     });
   }
 
-  error(message: string, range?: Range, cause?: unknown) {
+  error(init: DiagnosticInit) {
     return createDiagnostic({
       type: "error",
-      message,
-      range,
-      cause,
       filename: this.filename,
+      ...init,
     });
   }
 
@@ -146,8 +149,8 @@ class Renderer {
     }
   }
 
-  fatal(message: string, range?: Range, cause?: unknown): never {
-    this.emit(this.error(message, range, cause));
+  fatal(init: DiagnosticInit): never {
+    this.emit(this.error(init));
     throw new Error("Unable to render document.");
   }
 
@@ -164,11 +167,21 @@ class Renderer {
     try {
       return parse(this.document.original, {
         onError: (error) => {
-          this.emit(this.error(formatP5Error(error), p5ToRange(error)));
+          this.emit(
+            this.error({
+              code: error.code,
+              message: formatP5Error(error),
+              range: p5ToRange(error),
+            }),
+          );
         },
       });
     } catch (error) {
-      throw this.error("Failed to parse document.", undefined, error);
+      throw this.error({
+        code: "parse-error",
+        message: "Failed to parse document.",
+        range: undefined,
+      });
     }
   }
 
@@ -240,19 +253,23 @@ class Renderer {
     if (param.startsWith("{")) {
       try {
         return evaluateInlineData(param);
-      } catch (error) {
-        throw this.error(
-          `Invalid inline data: ${toMessage(error)}`,
-          undefined,
-          error,
-        );
+      } catch (cause) {
+        throw this.error({
+          code: "invalid-inline-data",
+          message: `Invalid inline data: ${toMessage(cause)}`,
+          cause,
+        });
       }
     } else {
       const resolved = await this.resolve(param);
       try {
         return interopModule(await import(resolved));
-      } catch (error) {
-        throw this.error(toMessage(error), undefined, error);
+      } catch (cause) {
+        throw this.error({
+          code: "cannot-find-module",
+          message: toMessage(cause),
+          cause,
+        });
       }
     }
   }
@@ -280,21 +297,15 @@ class Renderer {
     return extend ? extend() : context.createChildContext(context.$rawData);
   }
 
-  async renderDecendants(
-    node: ParentNode,
-    contextOrPropagate: BindingContext | false,
-  ) {
+  async renderDecendants(node: ParentNode, context: BindingContext) {
     for (const child of node.children) {
       if (child instanceof VirtualElement && child.binding === "ssr") {
         await this.renderRoot(child);
         continue;
       }
 
-      if (
-        contextOrPropagate &&
-        (child instanceof VirtualElement || child instanceof Element)
-      ) {
-        await this.renderElement(child, contextOrPropagate);
+      if (child instanceof VirtualElement || child instanceof Element) {
+        await this.renderElement(child, context);
         continue;
       }
     }
@@ -308,12 +319,27 @@ class Renderer {
           this.document.original,
           this.attributes,
         );
-      } catch (error) {
-        throw this.error(
-          `Failed to parse bindings: ${toMessage(error)}`,
-          node.range,
-          error,
-        );
+      } catch (cause) {
+        if (cause instanceof BindingParseError) {
+          this.emit(
+            this.error({
+              code: "binding-parse-error",
+              message: cause.message,
+              range: cause.range,
+              cause,
+            }),
+          );
+        } else {
+          this.emit(
+            this.error({
+              code: "binding-unknown-error",
+              message: "Failed to parse binding expression.",
+              range: node.range,
+              cause,
+            }),
+          );
+        }
+        return;
       }
 
       const { propagate, bubble, extend } = await this.#renderBindings(

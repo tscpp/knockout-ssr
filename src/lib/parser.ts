@@ -6,13 +6,13 @@ const virtualElementEnd = /\s*\/ko\s([^]*)/;
 export class Position {
   static zero = new Position(0, 0, 0);
 
-  static fromOffset(offset: number, document: string): Position {
+  static fromOffset(offset: number, source: string): Position {
     let line = 0,
       column = 0,
       current = 0;
 
     while (current < offset) {
-      if (document[current] === "\n") {
+      if (source[current] === "\n") {
         line++;
         column = 0;
       } else {
@@ -28,12 +28,12 @@ export class Position {
   static fromLineAndColumn(
     line: number,
     column: number,
-    document: string,
+    source: string,
   ): Position {
     let offset = 0;
 
     for (let i = 0; i < line; i++) {
-      offset = document.indexOf("\n", offset) + 1;
+      offset = source.indexOf("\n", offset) + 1;
     }
 
     offset += column;

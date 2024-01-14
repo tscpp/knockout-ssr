@@ -13,6 +13,15 @@ export class Binding {
   ) {}
 }
 
+export class BindingParseError extends Error {
+  constructor(
+    message: string,
+    public range: Range,
+  ) {
+    super(message);
+  }
+}
+
 export function parseBindings(
   node: Element | VirtualElement,
   original: string,
@@ -25,6 +34,31 @@ export function parseBindings(
   }
 }
 
+const parseExpression = (expr: string, translate: number, source: string) => {
+  try {
+    return acorn.parseExpressionAt(expr, 0, {
+      ecmaVersion: "latest",
+      ranges: true,
+    });
+  } catch (error) {
+    if (error instanceof SyntaxError && "pos" in error && "raisedAt" in error) {
+      const message = error.message.slice(
+        0,
+        error.message.lastIndexOf("(") - 1,
+      );
+
+      const startOffset = error.pos as number;
+      const start = Position.fromOffset(startOffset + translate, source);
+      const endOffset = error.raisedAt as number;
+      const end = Position.fromOffset(endOffset + translate, source);
+
+      throw new BindingParseError(message, new Range(start, end));
+    } else {
+      throw error;
+    }
+  }
+};
+
 function parseFromElement(
   node: Element,
   original: string,
@@ -34,15 +68,6 @@ function parseFromElement(
     return `{${attribute}}`;
   };
 
-  const parseAttributeBindings = (js: string) => {
-    const expr = acorn.parseExpressionAt(js, 0, {
-      ecmaVersion: "latest",
-      ranges: true,
-    });
-    assert(expr.type === "ObjectExpression", "Expected an object expression.");
-    return expr;
-  };
-
   const attributes = node.attributes.filter((attribute) =>
     parseAttributes.includes(attribute.name),
   );
@@ -50,26 +75,28 @@ function parseFromElement(
   return attributes.flatMap((attribute) => {
     if (!attribute?.value) return [];
 
+    // Find offset where the attribute value starts
+    let start = original.indexOf("=", attribute.range.start.offset) + 1;
+    const afterEq = original[start];
+    if (afterEq === '"') {
+      ++start;
+    }
+    const offset = start - 1;
+    const quote = afterEq === '"' ? "'" : '"';
+
     const js = bindingsToJs(attribute.value);
-    const obj = parseAttributeBindings(js);
+    const obj = parseExpression(js, start - 1, original);
+    assert(obj.type === "ObjectExpression", "Expected an object expression.");
 
     return obj.properties.map((prop) => {
       assert(prop.type === "Property", "Expected a property.");
       assert(prop.key.type === "Identifier", "Expected an identifier.");
 
-      // Find offset where the attribute value starts
-      let start = original.indexOf("=", attribute.range.start.offset) + 1;
-      const afterEq = original[start];
-      if (afterEq === '"') {
-        ++start;
-      }
-      const quote = afterEq === '"' ? "'" : '"';
-
       // Create binding
       const expression = transform(js.slice(...prop.value.range!), quote);
       const range = new Range(
-        Position.fromOffset(prop.range![0] - 1 + start, original),
-        Position.fromOffset(prop.range![1] - 1 + start, original),
+        Position.fromOffset(prop.range![0] + offset, original),
+        Position.fromOffset(prop.range![1] + offset, original),
       );
       return new Binding(prop.key.name, expression, quote, node, range);
     });
