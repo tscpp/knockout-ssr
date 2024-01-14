@@ -49,3 +49,11 @@ test("with hidden hydration", async ({ page }) => {
   const html = await page.innerHTML("body");
   expect(html).toContain("></div>");
 });
+
+test("foreach hydration", async ({ page }) => {
+  await page.goto(`${url}/foreach`);
+  const html = await page.innerHTML("body");
+  expect(html).toContain(">foo<");
+  expect(html).toContain(">bar<");
+  expect(html).toContain(">baz<");
+});

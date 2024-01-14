@@ -4,6 +4,7 @@ import { Element, Position, Range, VirtualElement } from "./parser.js";
 import { createHash } from "node:crypto";
 import { Binding } from "./binding.js";
 import { p5, p5ToRange, p5t } from "./parse5-utils.js";
+import * as ko from "knockout";
 
 export function getInnerRange(
   node: Element | VirtualElement,
@@ -246,4 +247,8 @@ export function extractIntoTemplate(binding: Binding, generated: MagicString) {
   );
 
   return id;
+}
+
+export function unwrap<T>(value: ko.MaybeSubscribable<T>): T {
+  return ko.unwrap(value);
 }

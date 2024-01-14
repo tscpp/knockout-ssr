@@ -4,4 +4,10 @@ export default {
   hidden: false,
   isClient: typeof window !== "undefined",
   nothing: undefined,
+  people: [
+    //
+    { name: "foo" },
+    { name: "bar" },
+    { name: "baz" },
+  ],
 };

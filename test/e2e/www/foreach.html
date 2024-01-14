@@ -1,0 +1,8 @@
+<!doctype html>
+<script defer src="./apply-bindings.js" type="module"></script>
+
+<!-- ko ssr: ./viewmodel.js -->
+<div data-bind="foreach: people">
+  <span data-bind="text: name"></span>
+</div>
+<!-- /ko -->
