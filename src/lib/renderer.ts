@@ -154,12 +154,18 @@ class Renderer {
     throw new Error("Unable to render document.");
   }
 
-  catch(error: unknown, range?: Range) {
+  catch(
+    error: unknown,
+    range?: Range,
+    unexpected = (error: unknown) => {
+      throw error;
+    },
+  ) {
     if (isDiagnostic(error)) {
       error.range ??= range;
       this.emit(error);
     } else {
-      throw error;
+      unexpected(error);
     }
   }
 
@@ -354,7 +360,14 @@ class Renderer {
 
       await bubble?.();
     } catch (error) {
-      this.catch(error, node.range);
+      this.catch(error, node.range, () => {
+        throw this.error({
+          code: "binding-error",
+          message: toMessage(error),
+          range: node.range,
+          cause: error,
+        });
+      });
     }
   }
 
@@ -370,10 +383,19 @@ class Renderer {
       const binding = bindings[i]!;
       const plugin = plugins[i];
 
-      await plugin?.alter?.({
-        binding,
-        context,
-      });
+      try {
+        await plugin?.alter?.({
+          binding,
+          context,
+        });
+      } catch (cause) {
+        throw this.error({
+          code: "alter-error",
+          message: toMessage(cause),
+          range: binding.range,
+          cause,
+        });
+      }
     }
 
     const rawValues: unknown[] = [];
@@ -418,22 +440,44 @@ class Renderer {
       const self = getSelf(i);
       const plugin = plugins[i];
 
-      await plugin?.ssr?.({
-        ...self,
-        generated: this.document,
-        bubble: (callback) => {
-          bubbles.push(callback);
-        },
-      });
+      try {
+        await plugin?.ssr?.({
+          ...self,
+          generated: this.document,
+          bubble: (callback) => {
+            bubbles.push(callback);
+          },
+        });
+      } catch (cause) {
+        throw this.error({
+          code: "render-error",
+          message: toMessage(cause),
+          range: bindings[i]!.range,
+          cause,
+        });
+      }
     }
 
     const propagate = !plugins.some(
       (plugin, i) => plugin?.propagate?.(getSelf(i)) === false,
     );
 
-    const extenders = plugins
-      .filter((plugin) => plugin?.extend)
-      .map((plugin, i) => () => plugin!.extend!({ parent: getSelf(i) }));
+    const extenders: (() => BindingContext | PromiseLike<BindingContext>)[] =
+      [];
+    for (const [i, plugin] of plugins.entries()) {
+      if (!plugin?.extend) continue;
+      try {
+        var extender = () => plugin.extend!({ parent: getSelf(i) });
+      } catch (cause) {
+        throw this.error({
+          code: "extend-error",
+          message: toMessage(cause),
+          range: bindings[i]!.range,
+          cause,
+        });
+      }
+      extenders.push(extender);
+    }
 
     // Only one plugin is expected to provide an extender.
     // See `extendDecendants`.
